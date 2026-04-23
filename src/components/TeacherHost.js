@@ -119,7 +119,7 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
 
   function downloadCSV() {
     if (!players.length) return
-    const rows = [['Nickname', 'Score', ...questions.map((q, i) => `Q${i + 1}`)]]
+    const rows = [['Nickname', 'Score', ...questions.map((q, i) => `Q${i + 1}: ${q.question_text.slice(0, 40)}...`)]]
     players.forEach(p => {
       const row = [p.nickname, p.score]
       questions.forEach((q, qi) => {
@@ -130,6 +130,36 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
       })
       rows.push(row)
     })
+
+    // Blank separator row
+    rows.push([])
+
+    // % correct per question
+    const pctRow = ['% Correct', '']
+    questions.forEach((q, qi) => {
+      const qAnswers = answers.filter(a => a.question_index === qi)
+      const correct = qAnswers.filter(a => a.is_correct).length
+      const total = players.length
+      const pct = total > 0 ? Math.round((correct / total) * 100) : 0
+      pctRow.push(`${pct}%`)
+    })
+    rows.push(pctRow)
+
+    // # who got it wrong
+    const wrongRow = ['# Wrong', '']
+    questions.forEach((q, qi) => {
+      const qAnswers = answers.filter(a => a.question_index === qi)
+      const wrong = players.length - qAnswers.filter(a => a.is_correct).length
+      wrongRow.push(wrong)
+    })
+    rows.push(wrongRow)
+
+    // Correct answer label
+    const answerRow = ['Correct Answer', '']
+    const opts = ['A', 'B', 'C', 'D']
+    questions.forEach(q => answerRow.push(opts[q.correct_index]))
+    rows.push(answerRow)
+
     const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n')
     const blob = new Blob([csv], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
