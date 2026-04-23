@@ -36,6 +36,7 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
   }, [session])
 
   async function fetchSets() {
+    // RLS automatically filters to only this teacher's sets
     const { data } = await supabase.from('question_sets').select('*').order('subject')
     setSets(data || [])
   }
@@ -160,20 +161,25 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem' }}>
             {sets.map(s => (
-              <div key={s.id} className="card-sm" style={{ cursor: 'pointer', border: selectedSet?.id === s.id ? '1px solid var(--accent)' : '1px solid var(--border)', transition: 'all 0.15s' }}
-                onClick={() => setSelectedSet(s)}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div>
-                    <p style={{ fontWeight: 600, marginBottom: '0.2rem' }}>{s.name}</p>
-                    <span className="badge badge-accent">{s.subject}</span>
-                  </div>
-                  {selectedSet?.id === s.id && <span style={{ color: 'var(--green)', fontSize: '1.2rem' }}>✓</span>}
+              <div key={s.id} className="card-sm" style={{
+                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                border: selectedSet?.id === s.id ? '1px solid var(--accent)' : '',
+                background: selectedSet?.id === s.id ? 'rgba(108,99,255,0.08)' : ''
+              }} onClick={() => setSelectedSet(s)}>
+                <div>
+                  <p style={{ fontWeight: 600, marginBottom: '0.2rem' }}>{s.name}</p>
+                  <span className="badge badge-accent">{s.subject}</span>
                 </div>
+                {selectedSet?.id === s.id && <span style={{ color: 'var(--accent)', fontSize: '1.2rem' }}>✓</span>}
               </div>
             ))}
           </div>
         )}
-        <button className="btn btn-primary btn-full btn-lg" disabled={!selectedSet} onClick={startLobby}>Create game →</button>
+        {selectedSet && (
+          <button className="btn btn-primary btn-full btn-lg" onClick={startLobby}>
+            Start lobby →
+          </button>
+        )}
       </div>
     </div>
   )
