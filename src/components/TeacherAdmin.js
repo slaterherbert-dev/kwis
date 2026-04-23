@@ -1,16 +1,14 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
+import { useAuth } from '../contexts/AuthContext'
 
 const SUBJECTS = ['Economics', 'IB History', 'Civics', 'Other']
-const ADMIN_PASSWORD = 'kwis2024'
 
 export default function TeacherAdmin({ go }) {
-  const [authed, setAuthed] = useState(false)
-  const [pw, setPw] = useState('')
-  const [pwError, setPwError] = useState(false)
+  const { user, signOut } = useAuth()
   const [sets, setSets] = useState([])
   const [loading, setLoading] = useState(true)
-  const [view, setView] = useState('sets') // 'sets' | 'questions'
+  const [view, setView] = useState('sets')
   const [activeSet, setActiveSet] = useState(null)
   const [questions, setQuestions] = useState([])
   const [showSetModal, setShowSetModal] = useState(false)
@@ -20,11 +18,15 @@ export default function TeacherAdmin({ go }) {
   const [qForm, setQForm] = useState({ question_text: '', option_a: '', option_b: '', option_c: '', option_d: '', correct_index: 0, explanation: '' })
   const [saving, setSaving] = useState(false)
 
-  useEffect(() => { if (authed) fetchSets() }, [authed])
+  useEffect(() => { fetchSets() }, [])
 
   async function fetchSets() {
     setLoading(true)
-    const { data } = await supabase.from('question_sets').select('*').order('created_at', { ascending: false })
+    // RLS automatically filters to this teacher's sets only
+    const { data } = await supabase
+      .from('question_sets')
+      .select('*')
+      .order('created_at', { ascending: false })
     setSets(data || [])
     setLoading(false)
   }
@@ -36,7 +38,10 @@ export default function TeacherAdmin({ go }) {
 
   async function saveSet() {
     setSaving(true)
-    await supabase.from('question_sets').insert([setForm])
+    await supabase.from('question_sets').insert([{
+      ...setForm,
+      teacher_id: user.id   // stamp the owner
+    }])
     setShowSetModal(false)
     setSetForm({ name: '', subject: 'Economics' })
     await fetchSets()
@@ -86,25 +91,13 @@ export default function TeacherAdmin({ go }) {
     setEditingQ(null)
   }
 
+  async function handleSignOut() {
+    await signOut()
+    go('landing')
+  }
+
   const optColors = ['var(--opt-a)', 'var(--opt-b)', 'var(--opt-c)', 'var(--opt-d)']
   const optLabels = ['A', 'B', 'C', 'D']
-
-  if (!authed) return (
-    <div className="screen centered">
-      <div className="card" style={{ width: '100%', maxWidth: 360, textAlign: 'center' }}>
-        <h2 style={{ fontSize: '1.4rem', fontWeight: 700, marginBottom: '0.5rem' }}>Admin access</h2>
-        <p style={{ color: 'var(--muted)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>Enter your admin password to manage question sets</p>
-        <div className="form-group">
-          <input type="password" placeholder="Password" value={pw}
-            onChange={e => setPw(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && (pw === ADMIN_PASSWORD ? setAuthed(true) : setPwError(true))} />
-          <div className={`error-msg ${pwError ? 'show' : ''}`}>Incorrect password</div>
-        </div>
-        <button className="btn btn-primary btn-full" onClick={() => pw === ADMIN_PASSWORD ? (setAuthed(true), setPwError(false)) : setPwError(true)}>Enter</button>
-        <button className="back-btn" style={{ marginTop: '1rem', marginBottom: 0 }} onClick={() => go('landing')}>← Back to home</button>
-      </div>
-    </div>
-  )
 
   return (
     <div className="screen">
@@ -122,9 +115,16 @@ export default function TeacherAdmin({ go }) {
             </h1>
             {view === 'questions' && <span className="badge badge-accent">{activeSet?.subject}</span>}
           </div>
-          <button className="btn btn-primary" onClick={() => { resetQForm(); view === 'sets' ? setShowSetModal(true) : setShowQModal(true) }}>
-            + {view === 'sets' ? 'New question set' : 'Add question'}
-          </button>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>{user?.email}</span>
+            <button className="btn" style={{ fontSize: '0.8rem', padding: '0.45rem 0.9rem' }} onClick={handleSignOut}>
+              Sign out
+            </button>
+            <button className="btn btn-primary" onClick={() => { resetQForm(); view === 'sets' ? setShowSetModal(true) : setShowQModal(true) }}>
+              + {view === 'sets' ? 'New question set' : 'Add question'}
+            </button>
+          </div>
         </div>
 
         {/* SETS VIEW */}
