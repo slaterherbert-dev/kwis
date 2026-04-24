@@ -34,18 +34,6 @@ export default function Landing({ go }) {
           <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🎮</div>
           <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.4rem' }}>Join a game</h3>
           <p style={{ fontSize: '0.83rem', color: 'var(--muted)', lineHeight: 1.5 }}>Enter the PIN from your teacher to play</p>
-          <div style={{
-            marginTop: '0.85rem',
-            padding: '0.5rem 0.6rem',
-            background: 'rgba(108,99,255,0.1)',
-            border: '1px solid rgba(108,99,255,0.25)',
-            borderRadius: 8,
-          }}>
-            <p style={{ fontSize: '0.65rem', color: 'var(--muted)', marginBottom: '0.15rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Go to</p>
-            <p style={{ fontSize: '0.95rem', fontWeight: 800, fontFamily: 'Syne', color: 'var(--accent)', letterSpacing: '-0.3px', lineHeight: 1.2 }}>
-              kwis-nine.vercel.app
-            </p>
-          </div>
         </div>
       </div>
     </div>

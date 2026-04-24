@@ -20,7 +20,6 @@ export default function StudentJoin({ go, setGameSession, setPlayer }) {
     if (!session) { setPinError('PIN not found — ask your teacher'); setLoading(false); return }
     if (session.phase !== 'lobby') { setPinError('Game already started — ask your teacher'); setLoading(false); return }
 
-    // Check for duplicate nickname
     const { data: existing } = await supabase.from('players').select('id').eq('session_id', session.id).eq('nickname', nickname.trim())
     if (existing && existing.length > 0) { setNickError('That nickname is taken — pick another'); setLoading(false); return }
 
@@ -37,7 +36,37 @@ export default function StudentJoin({ go, setGameSession, setPlayer }) {
 
   return (
     <div className="screen centered" style={{ background: 'radial-gradient(ellipse at 50% 0%, rgba(255,107,157,0.1) 0%, transparent 60%)' }}>
-      <h1 className="gradient-text" style={{ fontSize: '2.5rem', fontWeight: 800, marginBottom: '2rem' }}>Kwis</h1>
+
+      {/* ── Big URL banner — visible on projector ── */}
+      <div style={{
+        width: '100%',
+        maxWidth: 480,
+        textAlign: 'center',
+        marginBottom: '2rem',
+        padding: '1.1rem 1.5rem',
+        background: 'rgba(108,99,255,0.12)',
+        border: '2px solid rgba(108,99,255,0.35)',
+        borderRadius: 'var(--radius)',
+      }}>
+        <p style={{
+          fontSize: '0.72rem',
+          color: 'var(--muted)',
+          textTransform: 'uppercase',
+          letterSpacing: '0.12em',
+          marginBottom: '0.3rem'
+        }}>Open this website on your device</p>
+        <p style={{
+          fontFamily: 'Syne',
+          fontWeight: 800,
+          fontSize: 'clamp(1.6rem, 5vw, 2.4rem)',
+          color: 'var(--accent)',
+          letterSpacing: '-0.5px',
+          lineHeight: 1.1,
+        }}>
+          kwis-nine.vercel.app
+        </p>
+      </div>
+
       <div className="card" style={{ width: '100%', maxWidth: 380 }}>
         <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem' }}>Join a game</h2>
         <div className="form-group">
