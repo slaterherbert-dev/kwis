@@ -28,15 +28,6 @@ export default function Landing({ go }) {
         </div>
 
         <div className="card" style={{ width: 220, cursor: 'pointer', transition: 'all 0.2s' }}
-          onClick={() => go('gold-quest-host')}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--yellow, #ffaa32)'; e.currentTarget.style.transform = 'translateY(-4px)'; }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = ''; e.currentTarget.style.transform = ''; }}>
-          <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🪙</div>
-          <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.4rem' }}>Gold Quest</h3>
-          <p style={{ fontSize: '0.83rem', color: 'var(--muted)', lineHeight: 1.5 }}>Self-paced trivia with treasure chests and steals</p>
-        </div>
-
-        <div className="card" style={{ width: 220, cursor: 'pointer', transition: 'all 0.2s' }}
           onClick={() => go('student-join')}
           onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent2)'; e.currentTarget.style.transform = 'translateY(-4px)'; }}
           onMouseLeave={e => { e.currentTarget.style.borderColor = ''; e.currentTarget.style.transform = ''; }}>
