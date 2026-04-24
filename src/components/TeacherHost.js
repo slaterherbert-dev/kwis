@@ -398,7 +398,19 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
             {isGQ ? 'Gold Quest — ' : ''}Game PIN
           </p>
           <div className="gradient-text" style={{ fontSize: '4.5rem', fontWeight: 800, fontFamily: 'Syne', letterSpacing: '0.2em' }}>{session?.pin}</div>
-          <p style={{ color: 'var(--muted)', fontSize: '0.9rem', marginTop: '0.5rem' }}>Students go to <strong style={{ color: 'var(--text)' }}>kwis-nine.vercel.app</strong> → "Join a game" → enter this PIN</p>
+          <div style={{
+            display: 'inline-block', marginTop: '1rem',
+            padding: '0.85rem 1.75rem',
+            background: 'rgba(108,99,255,0.12)',
+            border: '2px solid rgba(108,99,255,0.35)',
+            borderRadius: 'var(--radius)',
+          }}>
+            <p style={{ fontSize: '0.68rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '0.25rem' }}>Students go to</p>
+            <p style={{ fontFamily: 'Syne', fontWeight: 800, fontSize: 'clamp(1.4rem, 3vw, 2.2rem)', color: 'var(--accent)', letterSpacing: '-0.5px', lineHeight: 1.1 }}>
+              kwis-nine.vercel.app
+            </p>
+            <p style={{ fontSize: '0.78rem', color: 'var(--muted)', marginTop: '0.35rem' }}>→ "Join a game" → enter the PIN above</p>
+          </div>
           {isGQ && (
             <p style={{ color: 'var(--yellow, #ffaa32)', fontSize: '0.82rem', marginTop: '0.35rem' }}>
               ⏱ {GQ_DURATION_OPTIONS.find(o => o.seconds === gqDuration)?.label || formatTime(gqDuration)} game
