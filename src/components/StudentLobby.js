@@ -12,7 +12,13 @@ export default function StudentLobby({ go, gameSession, player }) {
         setPlayerCount(count || 1)
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'game_sessions', filter: `id=eq.${gameSession.id}` }, (payload) => {
-        if (payload.new.phase === 'question' || payload.new.phase === 'countdown') go('student-game')
+        if (payload.new.phase === 'question' || payload.new.phase === 'countdown') {
+          if (payload.new.game_mode === 'gold_quest') {
+            go('gold-quest-play')
+          } else {
+            go('student-game')
+          }
+        }
       })
       .subscribe()
     return () => supabase.removeChannel(sub)

@@ -8,10 +8,12 @@ import StudentJoin from './components/StudentJoin'
 import StudentLobby from './components/StudentLobby'
 import StudentGame from './components/StudentGame'
 import StudentFinal from './components/StudentFinal'
+import GoldQuestTeacher from './components/GoldQuestTeacher'
+import GoldQuestStudent from './components/GoldQuestStudent'
 import './App.css'
 
 // Teacher-only screens — redirect to login if not authed
-const TEACHER_SCREENS = ['admin', 'host']
+const TEACHER_SCREENS = ['admin', 'host', 'gold-quest-host']
 
 function AppInner() {
   const { user, loading } = useAuth()
@@ -49,6 +51,8 @@ function AppInner() {
       {screen === 'student-lobby'&& <StudentLobby go={go} gameSession={gameSession} player={player} />}
       {screen === 'student-game' && <StudentGame go={go} gameSession={gameSession} player={player} setPlayer={setPlayer} />}
       {screen === 'student-final'&& <StudentFinal go={go} gameSession={gameSession} player={player} />}
+      {screen === 'gold-quest-host' && user && <GoldQuestTeacher go={go} setGameSession={setGameSession} gameSession={gameSession} />}
+      {screen === 'gold-quest-play' && <GoldQuestStudent go={go} gameSession={gameSession} player={player} setPlayer={setPlayer} />}
     </div>
   )
 }
