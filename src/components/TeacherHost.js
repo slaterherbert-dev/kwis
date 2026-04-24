@@ -20,6 +20,10 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
   const [session, setSession] = useState(null)
   const timerRef = useRef(null)
   const countdownRef = useRef(null)
+  const sessionRef = useRef(null)
+
+  // Keep sessionRef in sync so the timer callback never sees a stale session
+  useEffect(() => { sessionRef.current = session }, [session])
 
   useEffect(() => {
     fetchSets()
@@ -79,24 +83,42 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
   }
 
   async function loadQuestion(idx) {
+    clearInterval(timerRef.current)
+    timerRef.current = null
     setCurrentQ(idx)
     setTimer(TIMER_SECONDS)
-    await supabase.from('game_sessions').update({ current_question: idx, phase: 'question', revealed: false }).eq('id', session.id)
     setPhase('question')
-    clearInterval(timerRef.current)
+    await supabase.from('game_sessions').update({ current_question: idx, phase: 'question', revealed: false }).eq('id', sessionRef.current.id)
     let t = TIMER_SECONDS
     timerRef.current = setInterval(() => {
       t--
       setTimer(t)
-      if (t <= 0) clearInterval(timerRef.current)
+      if (t <= 0) {
+        clearInterval(timerRef.current)
+        timerRef.current = null
+        // Auto-reveal when timer expires
+        autoReveal()
+      }
     }, 1000)
+  }
+
+  async function autoReveal() {
+    const sid = sessionRef.current?.id
+    if (!sid) return
+    await supabase.from('game_sessions').update({ phase: 'revealed', revealed: true }).eq('id', sid)
+    await fetchAnswers(sid)
+    await fetchPlayers(sid)
+    setPhase('revealed')
   }
 
   async function revealAnswer() {
     clearInterval(timerRef.current)
-    await supabase.from('game_sessions').update({ phase: 'revealed', revealed: true }).eq('id', session.id)
-    await fetchAnswers(session.id)
-    await fetchPlayers(session.id)
+    timerRef.current = null
+    const sid = sessionRef.current?.id
+    if (!sid) return
+    await supabase.from('game_sessions').update({ phase: 'revealed', revealed: true }).eq('id', sid)
+    await fetchAnswers(sid)
+    await fetchPlayers(sid)
     setPhase('revealed')
   }
 

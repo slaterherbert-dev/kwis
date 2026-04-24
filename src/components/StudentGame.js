@@ -51,13 +51,19 @@ export default function StudentGame({ go, gameSession, player, setPlayer }) {
   }
 
   function startTimer() {
-    clearInterval(timerRef.current)
+    if (timerRef.current) {
+      clearInterval(timerRef.current)
+      timerRef.current = null
+    }
     let t = TIMER_SECONDS
     setTimer(t)
     timerRef.current = setInterval(() => {
       t--
       setTimer(t)
-      if (t <= 0) clearInterval(timerRef.current)
+      if (t <= 0) {
+        clearInterval(timerRef.current)
+        timerRef.current = null
+      }
     }, 1000)
   }
 
@@ -174,6 +180,12 @@ export default function StudentGame({ go, gameSession, player, setPlayer }) {
           {myAnswer === q.correct_index && pointsEarned > 0 && (
             <p className="score-float" style={{ fontFamily: 'Syne', fontWeight: 800, fontSize: '1.5rem', color: 'var(--green)' }}>+{pointsEarned} pts</p>
           )}
+        </div>
+      )}
+
+      {phase === 'revealed' && q.explanation && (
+        <div style={{ background: 'rgba(0,229,160,0.08)', border: '1px solid rgba(0,229,160,0.25)', borderRadius: 'var(--radius)', padding: '0.9rem 1.1rem', fontSize: '0.88rem', lineHeight: 1.6, color: '#a0f0d8', marginBottom: '0.75rem' }}>
+          💡 {q.explanation}
         </div>
       )}
 
