@@ -2,9 +2,21 @@ import React, { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
 
 const TIMER_SECONDS = 20
+const GQ_DURATION_OPTIONS = [
+  { label: '3 min', seconds: 180 },
+  { label: '5 min', seconds: 300 },
+  { label: '7 min', seconds: 420 },
+  { label: '10 min', seconds: 600 },
+]
 
 function generatePin() {
   return String(Math.floor(100000 + Math.random() * 900000))
+}
+
+function formatTime(seconds) {
+  const m = Math.floor(seconds / 60)
+  const s = seconds % 60
+  return `${m}:${String(s).padStart(2, '0')}`
 }
 
 export default function TeacherHost({ go, gameSession, setGameSession }) {
@@ -12,24 +24,32 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
   const [sets, setSets] = useState([])
   const [selectedSet, setSelectedSet] = useState(null)
   const [gameMode, setGameMode] = useState('classic') // classic | gold_quest
+  const [gqDuration, setGqDuration] = useState(300) // seconds, default 5 min
   const [questions, setQuestions] = useState([])
   const [currentQ, setCurrentQ] = useState(0)
   const [players, setPlayers] = useState([])
   const [answers, setAnswers] = useState([])
   const [timer, setTimer] = useState(TIMER_SECONDS)
   const [countdown, setCountdown] = useState(3)
+  const [gqTimeLeft, setGqTimeLeft] = useState(null)
   const [session, setSession] = useState(null)
   const timerRef = useRef(null)
   const countdownRef = useRef(null)
   const sessionRef = useRef(null)
   const pollRef = useRef(null)
+  const gqTimerRef = useRef(null)
 
   // Keep sessionRef in sync so the timer callback never sees a stale session
   useEffect(() => { sessionRef.current = session }, [session])
 
   useEffect(() => {
     fetchSets()
-    return () => { clearInterval(timerRef.current); clearInterval(countdownRef.current); clearInterval(pollRef.current) }
+    return () => {
+      clearInterval(timerRef.current)
+      clearInterval(countdownRef.current)
+      clearInterval(pollRef.current)
+      clearInterval(gqTimerRef.current)
+    }
   }, [])
 
   useEffect(() => {
@@ -42,7 +62,6 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
   }, [session])
 
   async function fetchSets() {
-    // RLS automatically filters to only this teacher's sets
     const { data } = await supabase.from('question_sets').select('*').order('subject')
     setSets(data || [])
   }
@@ -67,7 +86,8 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
       set_id: selectedSet.id,
       current_question: 0,
       phase: 'lobby',
-      game_mode: gameMode
+      game_mode: gameMode,
+      gold_quest_duration_seconds: gameMode === 'gold_quest' ? gqDuration : null
     }]).select().single()
     setSession(data)
     setGameSession(data)
@@ -77,16 +97,28 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
 
   async function startGame() {
     if (gameMode === 'gold_quest') {
-      // Gold Quest: skip countdown, go straight to self-paced play
       await supabase.from('game_sessions').update({ phase: 'question' }).eq('id', session.id)
       setPhase('gq-live')
+      setGqTimeLeft(gqDuration)
+
+      // Countdown timer
+      let t = gqDuration
+      gqTimerRef.current = setInterval(() => {
+        t--
+        setGqTimeLeft(t)
+        if (t <= 0) {
+          clearInterval(gqTimerRef.current)
+          gqTimerRef.current = null
+          endGame()
+        }
+      }, 1000)
+
       // Poll for player progress
       pollRef.current = setInterval(() => {
         const sid = sessionRef.current?.id
         if (sid) { fetchPlayers(sid); fetchAnswers(sid) }
       }, 3000)
     } else {
-      // Classic: countdown then first question
       clearInterval(countdownRef.current)
       setPhase('countdown')
       let c = 3
@@ -153,57 +185,85 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
   async function endGame() {
     clearInterval(timerRef.current)
     clearInterval(pollRef.current)
-    await supabase.from('game_sessions').update({ phase: 'ended', ended: true }).eq('id', session.id)
+    clearInterval(gqTimerRef.current)
+    gqTimerRef.current = null
+
+    const endPhase = gameMode === 'gold_quest' ? 'gold_quest_ended' : 'ended'
+    await supabase.from('game_sessions').update({ phase: endPhase, ended: true }).eq('id', session.id)
     await fetchPlayers(session.id)
     await fetchAnswers(session.id)
     setPhase('final')
   }
 
+  // ── CSV download (enhanced with per-student breakdown + top missed) ──
   function downloadCSV() {
     if (!players.length) return
     const isGQ = gameMode === 'gold_quest'
-    const rows = [['Nickname', isGQ ? 'Gold' : 'Score', ...questions.map((q, i) => `Q${i + 1}: ${q.question_text.slice(0, 40)}...`)]]
+    const opts = ['A', 'B', 'C', 'D']
+
+    // Per-question miss stats
+    const missData = questions.map((q, qi) => {
+      const qAnswers = answers.filter(a => a.question_index === qi)
+      const correct = qAnswers.filter(a => a.is_correct).length
+      const total = qAnswers.length || 0
+      const wrong = total - correct
+      const missRate = total > 0 ? Math.round(((total - correct) / total) * 100) : 0
+      return { qi, question: q.question_text, correct, wrong, total, missRate }
+    })
+
+    // Top 3 missed
+    const top3Missed = [...missData].sort((a, b) => b.missRate - a.missRate).slice(0, 3)
+
+    const rows = []
+
+    // Header
+    rows.push([isGQ ? '🪙 GOLD QUEST RESULTS' : '📊 KWIS RESULTS', `Set: ${selectedSet?.name}`, `PIN: ${session?.pin}`])
+    rows.push([])
+
+    // Top 3 Missed Questions section
+    rows.push(['TOP 3 MISSED QUESTIONS'])
+    rows.push(['Rank', 'Question', 'Miss Rate', '# Wrong', '# Correct', '# Attempted'])
+    top3Missed.forEach((m, i) => {
+      rows.push([`#${i + 1}`, m.question, `${m.missRate}%`, m.wrong, m.correct, m.total])
+    })
+    rows.push([])
+
+    // Per-student breakdown header
+    rows.push(['STUDENT RESULTS'])
+    rows.push(['Nickname', isGQ ? 'Gold' : 'Score', 'Correct', 'Wrong', 'Accuracy',
+      ...questions.map((q, i) => `Q${i + 1}: ${q.question_text.slice(0, 40)}`)])
+
     players.forEach(p => {
-      const row = [p.nickname, p.score]
+      const pAnswers = answers.filter(a => a.player_id === p.id)
+      const pCorrect = pAnswers.filter(a => a.is_correct).length
+      const pWrong = pAnswers.length - pCorrect
+      const pAcc = pAnswers.length > 0 ? `${Math.round((pCorrect / pAnswers.length) * 100)}%` : '—'
+      const row = [p.nickname, p.score, pCorrect, pWrong, pAcc]
       questions.forEach((q, qi) => {
-        const ans = answers.find(a => a.player_id === p.id && a.question_index === qi)
+        const ans = pAnswers.find(a => a.question_index === qi)
         if (!ans) { row.push('No answer'); return }
-        const opts = ['A', 'B', 'C', 'D']
-        row.push(`${opts[ans.answer_given] || '?'} (${ans.is_correct ? 'correct' : 'wrong'})`)
+        row.push(`${opts[ans.answer_given] || '?'} (${ans.is_correct ? '✓' : '✗'})`)
       })
       rows.push(row)
     })
 
     rows.push([])
 
-    const pctRow = ['% Correct', '']
+    // Summary row
+    rows.push(['QUESTION SUMMARY'])
+    rows.push(['Question', 'Correct Answer', '# Correct', '# Wrong', 'Miss Rate'])
     questions.forEach((q, qi) => {
-      const qAnswers = answers.filter(a => a.question_index === qi)
-      const correct = qAnswers.filter(a => a.is_correct).length
-      const total = isGQ ? (qAnswers.length || 1) : players.length
-      const pct = total > 0 ? Math.round((correct / total) * 100) : 0
-      pctRow.push(`${pct}%`)
+      const d = missData[qi]
+      rows.push([q.question_text, opts[q.correct_index], d.correct, d.wrong, `${d.missRate}%`])
     })
-    rows.push(pctRow)
 
-    const wrongRow = ['# Wrong', '']
-    questions.forEach((q, qi) => {
-      const qAnswers = answers.filter(a => a.question_index === qi)
-      const wrong = (isGQ ? qAnswers.length : players.length) - qAnswers.filter(a => a.is_correct).length
-      wrongRow.push(wrong)
-    })
-    rows.push(wrongRow)
-
-    const answerRow = ['Correct Answer', '']
-    const opts = ['A', 'B', 'C', 'D']
-    questions.forEach(q => answerRow.push(opts[q.correct_index]))
-    rows.push(answerRow)
-
-    const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n')
+    const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')
     const blob = new Blob([csv], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
-    a.href = url; a.download = `kwis-${isGQ ? 'goldquest' : 'results'}-${session?.pin}.csv`; a.click()
+    a.href = url
+    a.download = `kwis-${isGQ ? 'goldquest' : 'results'}-${session?.pin}.csv`
+    a.click()
   }
 
   // ── Derived (classic mode) ──
@@ -222,6 +282,19 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
   function playerCorrect(playerId) { return answers.filter(a => a.player_id === playerId && a.is_correct).length }
   const allFinished = players.length > 0 && players.every(p => playerProgress(p.id) >= totalQuestions)
   const isGQ = gameMode === 'gold_quest'
+
+  // GQ timer display helpers
+  const gqTimerPct = gqTimeLeft !== null ? (gqTimeLeft / gqDuration) * 100 : 100
+  const gqTimerColor = gqTimeLeft > 60 ? 'var(--green)' : gqTimeLeft > 30 ? 'var(--yellow, #ffaa32)' : 'var(--red)'
+
+  // Top 3 missed (for final screen)
+  const top3Missed = questions.length > 0 ? questions.map((q, qi) => {
+    const qAnswers = answers.filter(a => a.question_index === qi)
+    const correct = qAnswers.filter(a => a.is_correct).length
+    const total = qAnswers.length || 0
+    const missRate = total > 0 ? Math.round(((total - correct) / total) * 100) : 0
+    return { qi, question: q.question_text, missRate, wrong: total - correct, total, correct_answer: ['A','B','C','D'][q.correct_index] }
+  }).sort((a, b) => b.missRate - a.missRate).slice(0, 3) : []
 
   // ── PICK SET ──
   if (phase === 'pick') return (
@@ -254,6 +327,34 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
             <p style={{ fontSize: '0.75rem', color: 'var(--muted)', lineHeight: 1.4 }}>Self-paced with treasure chests and steals</p>
           </div>
         </div>
+
+        {/* Gold Quest duration picker */}
+        {gameMode === 'gold_quest' && (
+          <div style={{ marginBottom: '1.75rem' }}>
+            <p style={{ fontSize: '0.82rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.6rem' }}>
+              🕐 Game duration
+            </p>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              {GQ_DURATION_OPTIONS.map(opt => (
+                <button key={opt.seconds}
+                  onClick={() => setGqDuration(opt.seconds)}
+                  style={{
+                    padding: '0.5rem 1.1rem',
+                    borderRadius: 'var(--radius)',
+                    border: gqDuration === opt.seconds ? '2px solid var(--yellow, #ffaa32)' : '1px solid var(--border)',
+                    background: gqDuration === opt.seconds ? 'rgba(255,170,50,0.15)' : 'var(--surface)',
+                    color: gqDuration === opt.seconds ? 'var(--yellow, #ffaa32)' : 'var(--text)',
+                    fontWeight: gqDuration === opt.seconds ? 700 : 500,
+                    fontSize: '0.9rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s'
+                  }}>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Set list */}
         {sets.length === 0 ? (
@@ -297,7 +398,12 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
             {isGQ ? 'Gold Quest — ' : ''}Game PIN
           </p>
           <div className="gradient-text" style={{ fontSize: '4.5rem', fontWeight: 800, fontFamily: 'Syne', letterSpacing: '0.2em' }}>{session?.pin}</div>
-          <p style={{ color: 'var(--muted)', fontSize: '0.9rem', marginTop: '0.5rem' }}>Students go to this page → "Join a game" → enter this PIN</p>
+          <p style={{ color: 'var(--muted)', fontSize: '0.9rem', marginTop: '0.5rem' }}>Students go to <strong style={{ color: 'var(--text)' }}>kwis-nine.vercel.app</strong> → "Join a game" → enter this PIN</p>
+          {isGQ && (
+            <p style={{ color: 'var(--yellow, #ffaa32)', fontSize: '0.82rem', marginTop: '0.35rem' }}>
+              ⏱ {GQ_DURATION_OPTIONS.find(o => o.seconds === gqDuration)?.label || formatTime(gqDuration)} game
+            </p>
+          )}
         </div>
         <div className="card" style={{ marginBottom: '1.5rem' }}>
           <p style={{ fontSize: '0.8rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>Players joined — {players.length}</p>
@@ -388,6 +494,29 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
 
           {/* Stats sidebar */}
           <div style={{ width: 220, flexShrink: 0 }}>
+
+            {/* Timer card */}
+            <div className="card" style={{ marginBottom: '1rem', textAlign: 'center' }}>
+              <p style={{ fontSize: '0.75rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>Time remaining</p>
+              {/* Circular timer */}
+              <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: '0.5rem' }}>
+                <svg width="80" height="80" viewBox="0 0 80 80">
+                  <circle cx="40" cy="40" r="32" fill="none" stroke="var(--surface2)" strokeWidth="5" />
+                  <circle cx="40" cy="40" r="32" fill="none" stroke={gqTimerColor} strokeWidth="5"
+                    strokeDasharray={2 * Math.PI * 32}
+                    strokeDashoffset={(2 * Math.PI * 32) * (1 - gqTimerPct / 100)}
+                    strokeLinecap="round"
+                    style={{ transform: 'rotate(-90deg)', transformOrigin: 'center', transition: 'stroke-dashoffset 1s linear, stroke 0.3s' }} />
+                </svg>
+                <div style={{ position: 'absolute', fontFamily: 'Syne', fontWeight: 800, fontSize: '1.1rem', color: gqTimerColor }}>
+                  {gqTimeLeft !== null ? formatTime(gqTimeLeft) : '—'}
+                </div>
+              </div>
+              {gqTimeLeft !== null && gqTimeLeft <= 60 && (
+                <p style={{ fontSize: '0.75rem', color: 'var(--red)', fontWeight: 600, animation: 'pulse 1s infinite' }}>⚠ Almost out of time!</p>
+              )}
+            </div>
+
             <div className="card" style={{ marginBottom: '1rem' }}>
               <p style={{ fontSize: '0.75rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.6rem' }}>Game stats</p>
 
@@ -530,6 +659,7 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
             {isGQ ? 'Gold Quest — Results' : 'Game over!'}
           </h1>
           <p style={{ color: 'var(--muted)', textAlign: 'center', marginBottom: '2rem', fontSize: '0.9rem' }}>{selectedSet?.name}</p>
+
           <div className="podium">
             {podiumOrder.map((p, i) => p && (
               <div key={p.id} className="podium-slot">
@@ -539,6 +669,7 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
               </div>
             ))}
           </div>
+
           <div className="card" style={{ marginBottom: '1.5rem' }}>
             {players.map((p, i) => (
               <div key={p.id} className="lb-row">
@@ -552,9 +683,43 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
               </div>
             ))}
           </div>
+
+          {/* Top 3 Missed Questions */}
+          {isGQ && top3Missed.length > 0 && (
+            <div style={{
+              background: 'rgba(255,71,87,0.07)', border: '1px solid rgba(255,71,87,0.2)',
+              borderRadius: 'var(--radius)', padding: '1rem 1.25rem', marginBottom: '1.5rem'
+            }}>
+              <p style={{ fontSize: '0.78rem', color: 'var(--red)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700, marginBottom: '0.75rem' }}>
+                🎯 Top 3 Most Missed Questions
+              </p>
+              {top3Missed.map((m, i) => (
+                <div key={m.qi} style={{
+                  display: 'flex', alignItems: 'flex-start', gap: '0.75rem',
+                  paddingBottom: i < top3Missed.length - 1 ? '0.65rem' : 0,
+                  marginBottom: i < top3Missed.length - 1 ? '0.65rem' : 0,
+                  borderBottom: i < top3Missed.length - 1 ? '1px solid rgba(255,71,87,0.12)' : 'none'
+                }}>
+                  <div style={{
+                    minWidth: 28, height: 28, borderRadius: '50%',
+                    background: i === 0 ? 'rgba(255,71,87,0.2)' : 'rgba(255,71,87,0.1)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '0.75rem', fontWeight: 800, color: 'var(--red)', flexShrink: 0
+                  }}>{i + 1}</div>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontSize: '0.85rem', fontWeight: 600, lineHeight: 1.4, marginBottom: '0.2rem' }}>{m.question}</p>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
+                      {m.missRate}% missed · {m.wrong}/{m.total} wrong · Correct answer: <strong style={{ color: 'var(--text)' }}>{m.correct_answer}</strong>
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
             <button className="btn btn-success" onClick={downloadCSV}>⬇ Download results CSV</button>
-            <button className="btn btn-primary" onClick={() => { setPhase('pick'); setSession(null); setSelectedSet(null); setGameMode('classic'); setPlayers([]); setAnswers([]) }}>Play again</button>
+            <button className="btn btn-primary" onClick={() => { setPhase('pick'); setSession(null); setSelectedSet(null); setGameMode('classic'); setPlayers([]); setAnswers([]); setGqTimeLeft(null) }}>Play again</button>
             <button className="btn" onClick={() => go('landing')}>Home</button>
           </div>
         </div>

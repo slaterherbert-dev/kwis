@@ -46,7 +46,7 @@ export default function GoldQuestStudent({ go, gameSession, player, setPlayer })
   const [questions, setQuestions] = useState([])
   const [shuffledOrder, setShuffledOrder] = useState([])
   const [currentIdx, setCurrentIdx] = useState(0)
-  const [phase, setPhase] = useState('question') // question | wrong | chests | reveal | stolen-alert | done
+  const [phase, setPhase] = useState('question') // question | wrong | chests | reveal | done | final-standings
   const [myAnswer, setMyAnswer] = useState(null)
   const [answered, setAnswered] = useState(false)
   const [gold, setGold] = useState(0)
@@ -54,24 +54,26 @@ export default function GoldQuestStudent({ go, gameSession, player, setPlayer })
   const [pickedChest, setPickedChest] = useState(null)
   const [chestResult, setChestResult] = useState(null)
   const [stolenFrom, setStolenFrom] = useState(null)
-  const [stolenAlert, setStolenAlert] = useState(null) // { thief, amount }
+  const [stolenAlert, setStolenAlert] = useState(null)
   const [rank, setRank] = useState(null)
   const [streak, setStreak] = useState(0)
+  // Final standings state
+  const [finalPlayers, setFinalPlayers] = useState([])
   const pollRef = useRef(null)
 
   useEffect(() => {
     loadQuestions()
 
-    // Listen for session ending
     const sub = supabase.channel('gq-student-' + gameSession.id)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'game_sessions', filter: `id=eq.${gameSession.id}` }, (payload) => {
         const s = payload.new
         setSession(s)
-        if (s.phase === 'ended') setPhase('done')
+        if (s.phase === 'ended' || s.phase === 'gold_quest_ended') {
+          loadFinalStandings()
+        }
       })
       .subscribe()
 
-    // Poll for steals against this player
     pollRef.current = setInterval(checkForSteals, 3000)
 
     return () => {
@@ -87,11 +89,15 @@ export default function GoldQuestStudent({ go, gameSession, player, setPlayer })
     setShuffledOrder(shuffleArray(qs.map((_, i) => i)))
   }
 
+  async function loadFinalStandings() {
+    const { data } = await supabase.from('players').select('*').eq('session_id', gameSession.id).order('score', { ascending: false })
+    setFinalPlayers(data || [])
+    setPhase('final-standings')
+  }
+
   async function checkForSteals() {
-    // Check if our gold was reduced by someone else (steal events)
     const { data } = await supabase.from('players').select('score').eq('id', player.id).single()
     if (data && data.score < gold) {
-      // We got stolen from — show alert briefly
       setStolenAlert({ amount: gold - data.score })
       setGold(data.score)
       setTimeout(() => setStolenAlert(null), 3000)
@@ -109,7 +115,6 @@ export default function GoldQuestStudent({ go, gameSession, player, setPlayer })
 
     const isCorrect = idx === q.correct_index
 
-    // Record the answer
     await supabase.from('answers').insert([{
       session_id: gameSession.id,
       player_id: player.id,
@@ -117,12 +122,11 @@ export default function GoldQuestStudent({ go, gameSession, player, setPlayer })
       question_index: qIdx,
       answer_given: idx,
       is_correct: isCorrect,
-      points_earned: 0 // gold is tracked separately
+      points_earned: 0
     }])
 
     if (isCorrect) {
       setStreak(s => s + 1)
-      // Generate chests and go to chest phase
       setChests(generateChests())
       setPickedChest(null)
       setChestResult(null)
@@ -145,7 +149,6 @@ export default function GoldQuestStudent({ go, gameSession, player, setPlayer })
     if (reward.type === 'gold') {
       goldDelta = reward.amount
     } else if (reward.type === 'steal') {
-      // Pick a random other player to steal from
       const { data: others } = await supabase.from('players')
         .select('*')
         .eq('session_id', gameSession.id)
@@ -156,13 +159,10 @@ export default function GoldQuestStudent({ go, gameSession, player, setPlayer })
         const stealAmount = Math.min(Math.max(1, Math.floor(victim.score * 0.3)), 5)
         goldDelta = stealAmount
         stealTarget = victim
-
-        // Deduct from victim
         await supabase.from('players').update({ score: victim.score - stealAmount }).eq('id', victim.id)
         setStolenFrom({ nickname: victim.nickname, avatar: victim.avatar, amount: stealAmount })
         reward.label = `Stole ${stealAmount} gold!`
       } else {
-        // No one to steal from — give 1 gold instead
         goldDelta = 1
         reward.type = 'gold'
         reward.label = '+1 gold'
@@ -174,10 +174,8 @@ export default function GoldQuestStudent({ go, gameSession, player, setPlayer })
     setGold(newGold)
     setChestResult(reward)
 
-    // Update score in DB
     await supabase.from('players').update({ score: newGold }).eq('id', player.id)
 
-    // Fetch rank
     const { data: allPlayers } = await supabase.from('players').select('score').eq('session_id', gameSession.id).order('score', { ascending: false })
     const myRank = (allPlayers || []).findIndex(p => p.score <= newGold) + 1 || allPlayers?.length || 1
     setRank(myRank)
@@ -205,24 +203,98 @@ export default function GoldQuestStudent({ go, gameSession, player, setPlayer })
   const progress = questions.length > 0 ? (currentIdx / questions.length) * 100 : 0
 
   // ── Loading ──
-  if (!q) return (
+  if (!q && phase !== 'done' && phase !== 'final-standings') return (
     <div className="screen centered">
       <div className="dot-row"><div className="dot" /><div className="dot" /><div className="dot" /></div>
     </div>
   )
 
-  // ── DONE ──
+  // ── FINAL STANDINGS (teacher ended the game) ──
+  if (phase === 'final-standings') {
+    const myEntry = finalPlayers.find(p => p.id === player.id)
+    const myFinalRank = finalPlayers.findIndex(p => p.id === player.id) + 1
+    const podiumOrder = [finalPlayers[1], finalPlayers[0], finalPlayers[2]].filter(Boolean)
+    const podiumClasses = ['p2', 'p1', 'p3']
+    const podiumEmojis = ['🥈', '🥇', '🥉']
+
+    return (
+      <div className="screen" style={{ maxWidth: 500, margin: '0 auto' }}>
+        <div style={{ textAlign: 'center', marginBottom: '1.5rem', paddingTop: '1rem' }}>
+          <div style={{ fontSize: '2.5rem', marginBottom: '0.4rem' }}>🪙</div>
+          <h1 className="gradient-text" style={{ fontSize: '2rem', fontWeight: 800, fontFamily: 'Syne', marginBottom: '0.25rem' }}>
+            Gold Quest Over!
+          </h1>
+          <p style={{ color: 'var(--muted)', fontSize: '0.88rem' }}>Final standings</p>
+        </div>
+
+        {/* Your result callout */}
+        {myEntry && (
+          <div style={{
+            background: myFinalRank === 1 ? 'rgba(255,170,50,0.15)' : 'rgba(108,99,255,0.1)',
+            border: myFinalRank === 1 ? '2px solid rgba(255,170,50,0.5)' : '1px solid var(--accent)',
+            borderRadius: 'var(--radius)', padding: '1rem 1.25rem', marginBottom: '1.5rem', textAlign: 'center'
+          }}>
+            <p style={{ fontSize: '0.82rem', color: 'var(--muted)', marginBottom: '0.3rem' }}>Your result</p>
+            <p style={{ fontFamily: 'Syne', fontWeight: 800, fontSize: '1.8rem', color: 'var(--yellow, #ffaa32)' }}>
+              🪙 {myEntry.score.toLocaleString()} gold
+            </p>
+            <p style={{ fontSize: '0.9rem', color: 'var(--muted)', marginTop: '0.25rem' }}>
+              {myFinalRank === 1 ? '🏆 You won!' : myFinalRank === 2 ? '🥈 Runner-up!' : myFinalRank === 3 ? '🥉 Third place!' : `Rank #${myFinalRank}`}
+            </p>
+          </div>
+        )}
+
+        {/* Podium */}
+        {podiumOrder.length >= 2 && (
+          <div className="podium" style={{ marginBottom: '1.25rem' }}>
+            {podiumOrder.map((p, i) => p && (
+              <div key={p.id} className="podium-slot">
+                <div className="podium-name" style={{ fontSize: '0.8rem' }}>{p.avatar} {p.nickname}</div>
+                <div className="podium-score" style={{ fontSize: '0.8rem' }}>🪙 {p.score.toLocaleString()}</div>
+                <div className={`podium-bar ${podiumClasses[i]}`}>{podiumEmojis[i]}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Full leaderboard */}
+        <div className="card" style={{ marginBottom: '1.5rem' }}>
+          <p style={{ fontSize: '0.75rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>Full leaderboard</p>
+          {finalPlayers.map((p, i) => (
+            <div key={p.id} className="lb-row" style={{
+              background: p.id === player.id ? 'rgba(108,99,255,0.07)' : 'transparent',
+              borderRadius: 6, padding: '0.1rem 0.3rem', margin: '0 -0.3rem'
+            }}>
+              <div className={`lb-rank ${i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : ''}`}>{['🥇','🥈','🥉'][i] || i + 1}</div>
+              <div style={{ fontSize: '1rem' }}>{p.avatar}</div>
+              <div className="lb-name">{p.nickname}{p.id === player.id ? ' (you)' : ''}</div>
+              <div className="lb-score" style={{ color: 'var(--yellow, #ffaa32)' }}>🪙 {p.score.toLocaleString()}</div>
+            </div>
+          ))}
+        </div>
+
+        <button className="btn btn-primary btn-full" onClick={() => go('landing')}>
+          Back to home
+        </button>
+      </div>
+    )
+  }
+
+  // ── DONE (finished all questions before timer ran out) ──
   if (phase === 'done') return (
     <div className="screen centered" style={{ maxWidth: 420, margin: '0 auto', textAlign: 'center' }}>
       <div style={{ fontSize: '3.5rem', marginBottom: '0.5rem' }}>🏆</div>
-      <h2 className="gradient-text" style={{ fontSize: '1.8rem', fontWeight: 800, fontFamily: 'Syne', marginBottom: '0.5rem' }}>Game Over!</h2>
+      <h2 className="gradient-text" style={{ fontSize: '1.8rem', fontWeight: 800, fontFamily: 'Syne', marginBottom: '0.5rem' }}>All done!</h2>
       <div className="card" style={{ marginBottom: '1.25rem', padding: '1.5rem' }}>
         <p style={{ fontSize: '2.2rem', fontWeight: 800, fontFamily: 'Syne', color: 'var(--yellow, #ffaa32)' }}>
           🪙 {gold.toLocaleString()} gold
         </p>
-        {rank && <p style={{ color: 'var(--muted)', fontSize: '0.9rem', marginTop: '0.35rem' }}>Final rank: #{rank}</p>}
+        {rank && <p style={{ color: 'var(--muted)', fontSize: '0.9rem', marginTop: '0.35rem' }}>Current rank: #{rank}</p>}
       </div>
-      <p style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>Waiting for the teacher to show final results…</p>
+      <p style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>Waiting for the teacher to end the game…</p>
+      <div className="dot-row" style={{ marginTop: '1rem' }}>
+        <div className="dot" /><div className="dot" /><div className="dot" />
+      </div>
     </div>
   )
 
@@ -365,7 +437,6 @@ export default function GoldQuestStudent({ go, gameSession, player, setPlayer })
             )}
           </div>
 
-          {/* Show the other chests */}
           <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', marginBottom: '1rem' }}>
             {chests.map((c, i) => (
               <div key={i} style={{
@@ -381,7 +452,7 @@ export default function GoldQuestStudent({ go, gameSession, player, setPlayer })
           </div>
 
           <button className="btn btn-primary" onClick={nextQuestion}>
-            {currentIdx + 1 >= questions.length ? 'See results' : 'Next question →'}
+            {currentIdx + 1 >= questions.length ? 'Finish!' : 'Next question →'}
           </button>
         </div>
       )}
