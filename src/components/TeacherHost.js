@@ -456,16 +456,7 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
           </div>
         </div>
 
-        {allFinished && (
-          <div style={{
-            background: 'rgba(0,229,160,0.1)', border: '1px solid rgba(0,229,160,0.3)',
-            borderRadius: 'var(--radius)', padding: '0.85rem 1.1rem', marginBottom: '1rem',
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem'
-          }}>
-            <p style={{ color: 'var(--green)', fontWeight: 600, fontSize: '0.9rem' }}>✓ All students have finished!</p>
-            <button className="btn btn-primary" onClick={endGame}>End game & show results</button>
-          </div>
-        )}
+
 
         <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
           {/* Leaderboard */}
@@ -488,13 +479,13 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
                       </div>
                       <div style={{ height: 4, borderRadius: 2, background: 'var(--surface2)', overflow: 'hidden' }}>
                         <div style={{
-                          width: `${progPct}%`, height: '100%', borderRadius: 2,
-                          background: progPct >= 100 ? 'var(--green)' : 'var(--accent)',
+                          width: `${Math.min(progPct, 100)}%`, height: '100%', borderRadius: 2,
+                          background: 'var(--accent)',
                           transition: 'width 0.5s ease'
                         }} />
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.15rem' }}>
-                        <span style={{ fontSize: '0.7rem', color: 'var(--muted)' }}>{prog}/{totalQuestions} answered</span>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--muted)' }}>{prog} answered</span>
                         <span style={{ fontSize: '0.7rem', color: 'var(--muted)' }}>{correct} correct</span>
                       </div>
                     </div>

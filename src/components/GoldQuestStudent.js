@@ -57,6 +57,7 @@ export default function GoldQuestStudent({ go, gameSession, player, setPlayer })
   const [stolenAlert, setStolenAlert] = useState(null)
   const [rank, setRank] = useState(null)
   const [streak, setStreak] = useState(0)
+  const [gameLocked, setGameLocked] = useState(false)
   // Final standings state
   const [finalPlayers, setFinalPlayers] = useState([])
   const pollRef = useRef(null)
@@ -69,6 +70,7 @@ export default function GoldQuestStudent({ go, gameSession, player, setPlayer })
         const s = payload.new
         setSession(s)
         if (s.phase === 'ended' || s.phase === 'gold_quest_ended') {
+          setGameLocked(true)
           loadFinalStandings()
         }
       })
@@ -105,7 +107,7 @@ export default function GoldQuestStudent({ go, gameSession, player, setPlayer })
   }
 
   async function submitAnswer(idx) {
-    if (answered) return
+    if (answered || gameLocked) return
     setAnswered(true)
     setMyAnswer(idx)
 
@@ -184,6 +186,7 @@ export default function GoldQuestStudent({ go, gameSession, player, setPlayer })
   }
 
   function nextQuestion() {
+    if (gameLocked) return
     const next = currentIdx + 1
     if (next >= questions.length) {
       // Loop — reshuffle and restart instead of ending
