@@ -196,6 +196,11 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
     setPhase('final')
   }
 
+  async function kickPlayer(playerId) {
+    await supabase.from('players').update({ kicked: true }).eq('id', playerId)
+    setPlayers(prev => prev.filter(p => p.id !== playerId))
+  }
+
   // ── CSV download (enhanced with per-student breakdown + top missed) ──
   function downloadCSV() {
     if (!players.length) return
@@ -421,7 +426,16 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
         <div className="card" style={{ marginBottom: '1.5rem' }}>
           <p style={{ fontSize: '0.8rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>Players joined — {players.length}</p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', minHeight: 40 }}>
-            {players.map(p => <div key={p.id} className="chip pop-in">{p.avatar} {p.nickname}</div>)}
+            {players.map(p => (
+              <div key={p.id} className="chip pop-in" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', paddingRight: '0.4rem' }}>
+                <span>{p.avatar} {p.nickname}</span>
+                <button onClick={() => kickPlayer(p.id)} title="Remove player" style={{
+                  background: 'rgba(255,71,87,0.15)', border: '1px solid rgba(255,71,87,0.3)',
+                  borderRadius: 4, color: 'var(--red)', cursor: 'pointer', fontSize: '0.7rem',
+                  padding: '0.1rem 0.35rem', lineHeight: 1, fontWeight: 700
+                }}>✕</button>
+              </div>
+            ))}
             {players.length === 0 && <p style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>Waiting for students…</p>}
           </div>
         </div>
@@ -476,7 +490,14 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.2rem' }}>
                         <span className="lb-name" style={{ fontSize: '0.85rem' }}>{p.nickname}</span>
-                        <span style={{ fontFamily: 'Syne', fontWeight: 700, fontSize: '0.9rem', color: 'var(--yellow, #ffaa32)' }}>🪙 {p.score}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <span style={{ fontFamily: 'Syne', fontWeight: 700, fontSize: '0.9rem', color: 'var(--yellow, #ffaa32)' }}>🪙 {p.score}</span>
+                          <button onClick={() => kickPlayer(p.id)} title="Remove player" style={{
+                            background: 'rgba(255,71,87,0.15)', border: '1px solid rgba(255,71,87,0.3)',
+                            borderRadius: 4, color: 'var(--red)', cursor: 'pointer', fontSize: '0.7rem',
+                            padding: '0.15rem 0.4rem', lineHeight: 1, fontWeight: 700
+                          }}>✕</button>
+                        </div>
                       </div>
                       <div style={{ height: 4, borderRadius: 2, background: 'var(--surface2)', overflow: 'hidden' }}>
                         <div style={{
@@ -638,8 +659,13 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
                 <div key={p.id} className="lb-row">
                   <div className={`lb-rank ${i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : ''}`}>{i + 1}</div>
                   <div style={{ fontSize: '0.9rem' }}>{p.avatar}</div>
-                  <div className="lb-name" style={{ fontSize: '0.85rem' }}>{p.nickname}</div>
+                  <div className="lb-name" style={{ fontSize: '0.85rem', flex: 1 }}>{p.nickname}</div>
                   <div className="lb-score" style={{ fontSize: '0.85rem' }}>{p.score.toLocaleString()}</div>
+                  <button onClick={() => kickPlayer(p.id)} title="Remove player" style={{
+                    background: 'rgba(255,71,87,0.15)', border: '1px solid rgba(255,71,87,0.3)',
+                    borderRadius: 4, color: 'var(--red)', cursor: 'pointer', fontSize: '0.65rem',
+                    padding: '0.15rem 0.35rem', lineHeight: 1, fontWeight: 700, marginLeft: '0.25rem'
+                  }}>✕</button>
                 </div>
               ))}
               {players.length === 0 && <p style={{ color: 'var(--muted)', fontSize: '0.82rem' }}>No scores yet</p>}

@@ -14,6 +14,7 @@ export default function StudentGame({ go, gameSession, player, setPlayer }) {
   const [rank, setRank] = useState(null)
   const [timer, setTimer] = useState(TIMER_SECONDS)
   const [answered, setAnswered] = useState(false)
+  const [kicked, setKicked] = useState(false)
   const timerRef = useRef(null)
   const lastQRef = useRef(-1)
 
@@ -22,6 +23,9 @@ export default function StudentGame({ go, gameSession, player, setPlayer }) {
     const sub = supabase.channel('student-game-' + gameSession.id)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'game_sessions', filter: `id=eq.${gameSession.id}` }, (payload) => {
         handleSessionUpdate(payload.new)
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'players', filter: `id=eq.${player.id}` }, (payload) => {
+        if (payload.new?.kicked) setKicked(true)
       })
       .subscribe()
     return () => { supabase.removeChannel(sub); clearInterval(timerRef.current) }
@@ -94,7 +98,6 @@ export default function StudentGame({ go, gameSession, player, setPlayer }) {
 
     await supabase.from('players').update({ score: newScore }).eq('id', player.id)
 
-    // Fetch rank
     const { data: allPlayers } = await supabase.from('players').select('score').eq('session_id', gameSession.id).order('score', { ascending: false })
     const myRank = (allPlayers || []).findIndex(p => p.score <= newScore) + 1 || allPlayers?.length || 1
     setRank(myRank)
@@ -106,6 +109,18 @@ export default function StudentGame({ go, gameSession, player, setPlayer }) {
   const timerPct = (timer / TIMER_SECONDS) * 100
   const timerColor = timer > 10 ? 'var(--green)' : timer > 5 ? 'var(--yellow)' : 'var(--red)'
   const circumference = 2 * Math.PI * 22
+
+  // ── KICKED SCREEN ──
+  if (kicked) return (
+    <div className="screen centered" style={{ textAlign: 'center' }}>
+      <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🚫</div>
+      <h2 style={{ fontFamily: 'Syne', fontSize: '1.6rem', fontWeight: 800, marginBottom: '0.5rem' }}>You were removed</h2>
+      <p style={{ color: 'var(--muted)', marginBottom: '2rem', fontSize: '0.9rem' }}>
+        Your teacher removed you from the game.<br />Rejoin with a different name if needed.
+      </p>
+      <button className="btn btn-primary" onClick={() => go('student-join')}>Rejoin →</button>
+    </div>
+  )
 
   if (!q) return (
     <div className="screen centered">

@@ -77,6 +77,7 @@ export default function GoldQuestStudent({ go, gameSession, player }) {
   const [timeLeft, setTimeLeft]           = useState(null)
   const [endsAt, setEndsAt]               = useState(null)
   const [finalPlayers, setFinalPlayers]   = useState([])
+  const [kicked, setKicked]               = useState(false)
   const timerRef = useRef(null)
 
   useEffect(() => { goldRef.current = gold }, [gold])
@@ -94,6 +95,12 @@ export default function GoldQuestStudent({ go, gameSession, player }) {
           loadFinalStandings()
         }
         if (s.ends_at) setEndsAt(s.ends_at)
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'players', filter: `id=eq.${player.id}` }, (payload) => {
+        if (payload.new?.kicked) {
+          setGameLocked(true)
+          setKicked(true)
+        }
       })
       .on('postgres_changes', {
         event: 'INSERT', schema: 'public', table: 'steal_notifications',
@@ -271,6 +278,17 @@ export default function GoldQuestStudent({ go, gameSession, player }) {
   const totalDuration = gameSession.gold_quest_duration_seconds ? gameSession.gold_quest_duration_seconds * 1000 : null
   const timerPct  = (totalDuration && timeLeft !== null) ? (timeLeft / totalDuration) * 100 : 100
   const timerColor = timeLeft === null ? 'var(--accent)' : timeLeft > 60000 ? 'var(--accent)' : timeLeft > 30000 ? 'var(--yellow, #ffaa32)' : 'var(--red)'
+
+  if (kicked) return (
+    <div className="screen centered" style={{ textAlign: 'center' }}>
+      <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🚫</div>
+      <h2 style={{ fontFamily: 'Syne', fontSize: '1.6rem', fontWeight: 800, marginBottom: '0.5rem' }}>You were removed</h2>
+      <p style={{ color: 'var(--muted)', marginBottom: '2rem', fontSize: '0.9rem' }}>
+        Your teacher removed you from the game.<br />Rejoin with a different name if needed.
+      </p>
+      <button className="btn btn-primary" onClick={() => go('student-join')}>Rejoin →</button>
+    </div>
+  )
 
   if (!q && phase !== 'final-standings') return (
     <div className="screen centered">

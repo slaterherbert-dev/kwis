@@ -3,12 +3,18 @@ import { supabase } from '../supabase'
 
 export default function StudentLobby({ go, gameSession, player }) {
   const [playerCount, setPlayerCount] = useState(1)
+  const [kicked, setKicked] = useState(false)
 
   useEffect(() => {
     if (!gameSession) return
     const sub = supabase.channel('lobby-student-' + gameSession.id)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'players', filter: `session_id=eq.${gameSession.id}` }, async () => {
-        const { count } = await supabase.from('players').select('*', { count: 'exact', head: true }).eq('session_id', gameSession.id)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'players', filter: `session_id=eq.${gameSession.id}` }, async (payload) => {
+        // Check if this player was kicked
+        if (payload.new?.id === player?.id && payload.new?.kicked) {
+          setKicked(true)
+          return
+        }
+        const { count } = await supabase.from('players').select('*', { count: 'exact', head: true }).eq('session_id', gameSession.id).eq('kicked', false)
         setPlayerCount(count || 1)
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'game_sessions', filter: `id=eq.${gameSession.id}` }, (payload) => {
@@ -25,6 +31,17 @@ export default function StudentLobby({ go, gameSession, player }) {
   }, [gameSession])
 
   if (!player) return null
+
+  if (kicked) return (
+    <div className="screen centered" style={{ textAlign: 'center' }}>
+      <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🚫</div>
+      <h2 style={{ fontFamily: 'Syne', fontSize: '1.6rem', fontWeight: 800, marginBottom: '0.5rem' }}>You were removed</h2>
+      <p style={{ color: 'var(--muted)', marginBottom: '2rem', fontSize: '0.9rem' }}>
+        Your teacher removed you from the game.<br />Rejoin with a different name if needed.
+      </p>
+      <button className="btn btn-primary" onClick={() => go('student-join')}>Rejoin →</button>
+    </div>
+  )
 
   return (
     <div className="screen centered" style={{ textAlign: 'center' }}>
