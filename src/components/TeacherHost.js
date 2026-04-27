@@ -97,7 +97,8 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
 
   async function startGame() {
     if (gameMode === 'gold_quest') {
-      await supabase.from('game_sessions').update({ phase: 'question' }).eq('id', session.id)
+      const endsAt = new Date(Date.now() + gqDuration * 1000).toISOString()
+      await supabase.from('game_sessions').update({ phase: 'question', ends_at: endsAt }).eq('id', session.id)
       setPhase('gq-live')
       setGqTimeLeft(gqDuration)
 
