@@ -186,10 +186,12 @@ export default function GoldQuestStudent({ go, gameSession, player, setPlayer })
   function nextQuestion() {
     const next = currentIdx + 1
     if (next >= questions.length) {
-      setPhase('done')
-      return
+      // Loop — reshuffle and restart instead of ending
+      setShuffledOrder(shuffleArray(questions.map((_, i) => i)))
+      setCurrentIdx(0)
+    } else {
+      setCurrentIdx(next)
     }
-    setCurrentIdx(next)
     setMyAnswer(null)
     setAnswered(false)
     setPhase('question')
@@ -203,7 +205,7 @@ export default function GoldQuestStudent({ go, gameSession, player, setPlayer })
   const progress = questions.length > 0 ? (currentIdx / questions.length) * 100 : 0
 
   // ── Loading ──
-  if (!q && phase !== 'done' && phase !== 'final-standings') return (
+  if (!q && phase !== 'final-standings') return (
     <div className="screen centered">
       <div className="dot-row"><div className="dot" /><div className="dot" /><div className="dot" /></div>
     </div>
