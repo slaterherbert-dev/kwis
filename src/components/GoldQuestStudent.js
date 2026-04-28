@@ -34,6 +34,15 @@ function generateChests() {
   return [c1, c2, c3]
 }
 
+function useTheme() {
+  const [dark, setDark] = useState(() => localStorage.getItem('kwis-theme') !== 'light')
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light')
+    localStorage.setItem('kwis-theme', dark ? 'dark' : 'light')
+  }, [dark])
+  return [dark, setDark]
+}
+
 function shuffleArray(arr) {
   const a = [...arr]
   for (let i = a.length - 1; i > 0; i--) {
@@ -58,6 +67,7 @@ const CHEST_COLORS = [
 ]
 
 export default function GoldQuestStudent({ go, gameSession, player }) {
+  const [dark, setDark] = useTheme()
   const [questions, setQuestions]         = useState([])
   const [shuffledOrder, setShuffledOrder] = useState([])
   const [currentIdx, setCurrentIdx]       = useState(0)
@@ -402,7 +412,10 @@ export default function GoldQuestStudent({ go, gameSession, player }) {
             padding: '0.25rem 0.75rem', background: 'rgba(255,170,50,0.1)',
             borderRadius: 'var(--radius)', border: '1px solid rgba(255,170,50,0.25)'
           }}>🪙 {gold.toLocaleString()}</div>
-          <div style={{ fontSize: '0.82rem', color: 'var(--muted)', fontWeight: 600 }}>{rank ? `#${rank}` : '—'}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div style={{ fontSize: '0.82rem', color: 'var(--muted)', fontWeight: 600 }}>{rank ? `#${rank}` : '—'}</div>
+            <button className="theme-toggle" onClick={() => setDark(d => !d)} title="Toggle theme">{dark ? '☀️' : '🌙'}</button>
+          </div>
         </div>
       </div>
 

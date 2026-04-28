@@ -67,7 +67,7 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
   }
 
   async function fetchPlayers(sid) {
-    const { data } = await supabase.from('players').select('*').eq('session_id', sid).order('score', { ascending: false })
+    const { data } = await supabase.from('players').select('*').eq('session_id', sid).eq('kicked', false).order('score', { ascending: false })
     setPlayers(data || [])
   }
 
