@@ -24,6 +24,69 @@
   --radius-lg: 20px;
 }
 
+/* ── LIGHT THEME ── */
+[data-theme="light"] {
+  --bg: #f4f4f8;
+  --surface: #ffffff;
+  --surface2: #eaeaf2;
+  --surface3: #dddde8;
+  --border: rgba(0,0,0,0.08);
+  --border2: rgba(0,0,0,0.14);
+  --text: #111120;
+  --muted: #6b6b90;
+  --accent: #6c63ff;
+  --accent2: #ff6b9d;
+  --green: #00a572;
+  --yellow: #c48a00;
+  --red: #d93545;
+  --blue: #1e9b94;
+  --opt-a: #6c63ff;
+  --opt-b: #e8436e;
+  --opt-c: #c9a227;
+  --opt-d: #2aaba3;
+}
+
+[data-theme="light"] body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+[data-theme="light"] input,
+[data-theme="light"] select,
+[data-theme="light"] textarea {
+  background: #fff;
+  color: var(--text);
+}
+
+[data-theme="light"] select option {
+  background: #fff;
+}
+
+[data-theme="light"] .countdown-overlay {
+  background: var(--bg);
+}
+
+/* ── THEME TOGGLE ── */
+.theme-toggle {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--border2);
+  background: var(--surface2);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.theme-toggle:hover {
+  background: var(--surface3);
+  border-color: var(--accent);
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {

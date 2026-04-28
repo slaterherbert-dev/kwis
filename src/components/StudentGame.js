@@ -3,7 +3,17 @@ import { supabase } from '../supabase'
 
 const TIMER_SECONDS = 20
 
+function useTheme() {
+  const [dark, setDark] = useState(() => localStorage.getItem('kwis-theme') !== 'light')
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light')
+    localStorage.setItem('kwis-theme', dark ? 'dark' : 'light')
+  }, [dark])
+  return [dark, setDark]
+}
+
 export default function StudentGame({ go, gameSession, player, setPlayer }) {
+  const [dark, setDark] = useTheme()
   const [session, setSession] = useState(gameSession)
   const [questions, setQuestions] = useState([])
   const [currentQ, setCurrentQ] = useState(0)
@@ -136,7 +146,10 @@ export default function StudentGame({ go, gameSession, player, setPlayer }) {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
         <div style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>Q{currentQ + 1} / {questions.length}</div>
         <div className="card-sm" style={{ fontFamily: 'Syne', fontWeight: 700, fontSize: '1rem', padding: '0.35rem 0.85rem' }}>{score.toLocaleString()} pts</div>
-        <div style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>{rank ? `#${rank}` : '—'}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>{rank ? `#${rank}` : '—'}</div>
+          <button className="theme-toggle" onClick={() => setDark(d => !d)} title="Toggle theme">{dark ? '☀️' : '🌙'}</button>
+        </div>
       </div>
 
       {/* Timer + Question */}
