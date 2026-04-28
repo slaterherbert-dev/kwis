@@ -4,6 +4,16 @@ import { useAuth } from '../contexts/AuthContext'
 
 const SUBJECTS = ['Economics', 'IB History', 'Civics', 'Other']
 
+function generateCode(existingCodes = []) {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  let code
+  do {
+    const rand = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
+    code = `KWIS-${rand}`
+  } while (existingCodes.includes(code))
+  return code
+}
+
 export default function TeacherAdmin({ go }) {
   const { user, signOut } = useAuth()
   const [sets, setSets] = useState([])
@@ -18,11 +28,22 @@ export default function TeacherAdmin({ go }) {
   const [qForm, setQForm] = useState({ question_text: '', option_a: '', option_b: '', option_c: '', option_d: '', correct_index: 0, explanation: '' })
   const [saving, setSaving] = useState(false)
 
+  // Share modal state
+  const [shareTarget, setShareTarget] = useState(null)
+  const [shareCode, setShareCode] = useState('')
+  const [shareCopied, setShareCopied] = useState(false)
+  const [showShareModal, setShowShareModal] = useState(false)
+
+  // Import modal state
+  const [showImportModal, setShowImportModal] = useState(false)
+  const [importCode, setImportCode] = useState('')
+  const [importStatus, setImportStatus] = useState(null) // null | 'loading' | 'success' | 'error'
+  const [importError, setImportError] = useState('')
+
   useEffect(() => { fetchSets() }, [])
 
   async function fetchSets() {
     setLoading(true)
-    // RLS automatically filters to this teacher's sets only
     const { data } = await supabase
       .from('question_sets')
       .select('*')
@@ -40,7 +61,7 @@ export default function TeacherAdmin({ go }) {
     setSaving(true)
     await supabase.from('question_sets').insert([{
       ...setForm,
-      teacher_id: user.id   // stamp the owner
+      teacher_id: user.id
     }])
     setShowSetModal(false)
     setSetForm({ name: '', subject: 'Economics' })
@@ -96,6 +117,120 @@ export default function TeacherAdmin({ go }) {
     go('landing')
   }
 
+  // --- SHARE ---
+  async function openShareModal(set) {
+    let code = set.share_code
+
+    if (!code) {
+      const existingCodes = sets.map(s => s.share_code).filter(Boolean)
+      code = generateCode(existingCodes)
+
+      const { error } = await supabase
+        .from('question_sets')
+        .update({ share_code: code })
+        .eq('id', set.id)
+
+      if (error) {
+        alert('Could not generate share code. Please try again.')
+        return
+      }
+
+      setSets(prev => prev.map(s => s.id === set.id ? { ...s, share_code: code } : s))
+    }
+
+    setShareTarget({ ...set, share_code: code })
+    setShareCode(code)
+    setShareCopied(false)
+    setShowShareModal(true)
+  }
+
+  function copyShareCode() {
+    navigator.clipboard.writeText(shareCode).then(() => {
+      setShareCopied(true)
+      setTimeout(() => setShareCopied(false), 2000)
+    })
+  }
+
+  // --- IMPORT ---
+  function openImportModal() {
+    setImportCode('')
+    setImportStatus(null)
+    setImportError('')
+    setShowImportModal(true)
+  }
+
+  async function importByCode() {
+    const code = importCode.trim().toUpperCase()
+    if (!code) return
+
+    setImportStatus('loading')
+    setImportError('')
+
+    const { data, error } = await supabase.rpc('get_shared_set', { p_code: code })
+
+    if (error || !data) {
+      setImportStatus('error')
+      setImportError('Something went wrong. Please try again.')
+      return
+    }
+
+    if (data.error === 'not_found') {
+      setImportStatus('error')
+      setImportError(`No question set found for code "${code}". Double-check and try again.`)
+      return
+    }
+
+    const { set: srcSet, questions: srcQuestions } = data
+
+    if (srcSet.user_id === user.id) {
+      setImportStatus('error')
+      setImportError("That's one of your own sets — no need to import it!")
+      return
+    }
+
+    const { data: newSet, error: setErr } = await supabase
+      .from('question_sets')
+      .insert([{
+        name: srcSet.name,
+        subject: srcSet.subject,
+        user_id: user.id
+      }])
+      .select()
+      .single()
+
+    if (setErr || !newSet) {
+      setImportStatus('error')
+      setImportError('Failed to create question set. Please try again.')
+      return
+    }
+
+    if (srcQuestions && srcQuestions.length > 0) {
+      const questionCopies = srcQuestions.map(q => ({
+        set_id: newSet.id,
+        question_text: q.question_text,
+        option_a: q.option_a,
+        option_b: q.option_b,
+        option_c: q.option_c,
+        option_d: q.option_d,
+        correct_index: q.correct_index,
+        explanation: q.explanation,
+        position: q.position
+      }))
+
+      const { error: qErr } = await supabase.from('questions').insert(questionCopies)
+
+      if (qErr) {
+        await supabase.from('question_sets').delete().eq('id', newSet.id)
+        setImportStatus('error')
+        setImportError('Failed to import questions. Please try again.')
+        return
+      }
+    }
+
+    setImportStatus('success')
+    await fetchSets()
+  }
+
   const optColors = ['var(--opt-a)', 'var(--opt-b)', 'var(--opt-c)', 'var(--opt-d)']
   const optLabels = ['A', 'B', 'C', 'D']
 
@@ -121,6 +256,11 @@ export default function TeacherAdmin({ go }) {
             <button className="btn" style={{ fontSize: '0.8rem', padding: '0.45rem 0.9rem' }} onClick={handleSignOut}>
               Sign out
             </button>
+            {view === 'sets' && (
+              <button className="btn" style={{ fontSize: '0.8rem', padding: '0.45rem 0.9rem' }} onClick={openImportModal}>
+                ↓ Import
+              </button>
+            )}
             <button className="btn btn-primary" onClick={() => { resetQForm(); view === 'sets' ? setShowSetModal(true) : setShowQModal(true) }}>
               + {view === 'sets' ? 'New question set' : 'Add question'}
             </button>
@@ -143,12 +283,23 @@ export default function TeacherAdmin({ go }) {
                       <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '0.3rem' }}>{s.name}</h3>
                       <span className="badge badge-accent">{s.subject}</span>
                     </div>
+                    {s.share_code && (
+                      <span style={{
+                        fontSize: '0.65rem', fontFamily: 'monospace', fontWeight: 700,
+                        color: 'var(--accent)', background: 'rgba(99,102,241,0.1)',
+                        border: '1px solid var(--accent)', borderRadius: 6,
+                        padding: '0.2rem 0.45rem', letterSpacing: '0.05em'
+                      }}>
+                        {s.share_code}
+                      </span>
+                    )}
                   </div>
                   <p style={{ fontSize: '0.8rem', color: 'var(--muted)', marginBottom: '1rem' }}>
                     Created {new Date(s.created_at).toLocaleDateString()}
                   </p>
                   <div style={{ display: 'flex', gap: '0.5rem' }}>
                     <button className="btn" style={{ flex: 1, justifyContent: 'center', fontSize: '0.85rem', padding: '0.6rem' }} onClick={() => openSet(s)}>Edit questions</button>
+                    <button className="btn" style={{ fontSize: '0.85rem', padding: '0.6rem 0.9rem' }} title="Share" onClick={() => openShareModal(s)}>⤴</button>
                     <button className="btn btn-danger" style={{ fontSize: '0.85rem', padding: '0.6rem 0.9rem' }} onClick={() => deleteSet(s.id)}>🗑</button>
                   </div>
                 </div>
@@ -252,6 +403,87 @@ export default function TeacherAdmin({ go }) {
               <button className="btn" onClick={() => { setShowQModal(false); resetQForm(); }}>Cancel</button>
               <button className="btn btn-primary" disabled={!qForm.question_text || !qForm.option_a || saving} onClick={saveQuestion}>{saving ? 'Saving…' : editingQ ? 'Save changes' : 'Add question'}</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* SHARE MODAL */}
+      {showShareModal && (
+        <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && setShowShareModal(false)}>
+          <div className="modal">
+            <h2>Share question set</h2>
+            <p style={{ color: 'var(--muted)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+              Give this code to another teacher. They can import a full copy of <strong>{shareTarget?.name}</strong> into their own account.
+            </p>
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              background: 'var(--surface)', border: '2px solid var(--accent)',
+              borderRadius: 'var(--radius)', padding: '0.9rem 1.1rem', marginBottom: '1.25rem'
+            }}>
+              <span style={{ fontFamily: 'monospace', fontSize: '1.5rem', fontWeight: 700, letterSpacing: '0.1em', color: 'var(--accent)' }}>
+                {shareCode}
+              </span>
+              <button className="btn btn-primary" style={{ fontSize: '0.8rem', padding: '0.4rem 0.9rem' }} onClick={copyShareCode}>
+                {shareCopied ? '✓ Copied!' : 'Copy'}
+              </button>
+            </div>
+            <p style={{ fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '1.5rem' }}>
+              This code is permanent and reusable — any teacher with it can import a copy.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button className="btn" onClick={() => setShowShareModal(false)}>Done</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* IMPORT MODAL */}
+      {showImportModal && (
+        <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && setShowImportModal(false)}>
+          <div className="modal">
+            <h2>Import question set</h2>
+
+            {importStatus === 'success' ? (
+              <div style={{ textAlign: 'center', padding: '1.5rem 0' }}>
+                <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>✅</div>
+                <p style={{ fontWeight: 700, marginBottom: '0.4rem' }}>Question set imported!</p>
+                <p style={{ color: 'var(--muted)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
+                  It's now in your question sets, ready to edit and use.
+                </p>
+                <button className="btn btn-primary" onClick={() => setShowImportModal(false)}>View my sets</button>
+              </div>
+            ) : (
+              <>
+                <p style={{ color: 'var(--muted)', fontSize: '0.9rem', marginBottom: '1.25rem' }}>
+                  Enter a share code from another teacher to import a full copy of their question set into your account.
+                </p>
+                <div className="form-group">
+                  <label>Share code</label>
+                  <input
+                    placeholder="e.g. KWIS-4X9Z"
+                    value={importCode}
+                    onChange={e => { setImportCode(e.target.value.toUpperCase()); setImportStatus(null); setImportError('') }}
+                    style={{ fontFamily: 'monospace', fontSize: '1.1rem', letterSpacing: '0.05em' }}
+                    onKeyDown={e => e.key === 'Enter' && importStatus !== 'loading' && importByCode()}
+                  />
+                </div>
+                {importStatus === 'error' && (
+                  <p style={{ color: 'var(--red)', fontSize: '0.85rem', marginTop: '-0.5rem', marginBottom: '1rem' }}>
+                    {importError}
+                  </p>
+                )}
+                <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                  <button className="btn" onClick={() => setShowImportModal(false)}>Cancel</button>
+                  <button
+                    className="btn btn-primary"
+                    disabled={!importCode.trim() || importStatus === 'loading'}
+                    onClick={importByCode}
+                  >
+                    {importStatus === 'loading' ? 'Importing…' : 'Import'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
