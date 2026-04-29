@@ -34,11 +34,19 @@ export default function TeacherAdmin({ go }) {
   const [shareCopied, setShareCopied] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
 
-  // Import modal state
+  // Import via code modal state
   const [showImportModal, setShowImportModal] = useState(false)
   const [importCode, setImportCode] = useState('')
   const [importStatus, setImportStatus] = useState(null) // null | 'loading' | 'success' | 'error'
   const [importError, setImportError] = useState('')
+
+  // Import via CSV modal state
+  const [showCSVModal, setShowCSVModal] = useState(false)
+  const [csvSetName, setCsvSetName] = useState('')
+  const [csvSubject, setCsvSubject] = useState('Economics')
+  const [csvStatus, setCsvStatus] = useState(null) // null | 'loading' | 'success' | 'error'
+  const [csvError, setCsvError] = useState('')
+  const [csvPreview, setCsvPreview] = useState([]) // parsed rows before import
 
   useEffect(() => { fetchSets() }, [])
 
@@ -231,6 +239,122 @@ export default function TeacherAdmin({ go }) {
     await fetchSets()
   }
 
+  // --- CSV IMPORT ---
+  function downloadTemplate() {
+    const header = 'question_text,option_a,option_b,option_c,option_d,correct_index,explanation'
+    const example1 = 'Who was the first U.S. president?,George Washington,Abraham Lincoln,Thomas Jefferson,John Adams,0,Washington served as the first president from 1789 to 1797'
+    const example2 = 'What is the law of demand?,Price up = quantity up,Price up = quantity down,Price down = quantity down,No relationship between price and quantity,1,As price increases consumers buy less — inverse relationship'
+    const csv = [header, example1, example2].join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'kwis_question_template.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  function openCSVModal() {
+    setCsvSetName('')
+    setCsvSubject('Economics')
+    setCsvStatus(null)
+    setCsvError('')
+    setCsvPreview([])
+    setShowCSVModal(true)
+  }
+
+  function parseCSV(text) {
+    const lines = text.trim().split('\n').map(l => l.trim()).filter(Boolean)
+    if (lines.length < 2) return { error: 'File appears to be empty or only has a header row.' }
+
+    const header = lines[0].toLowerCase().split(',').map(h => h.trim().replace(/"/g, ''))
+    const required = ['question_text', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_index']
+    const missing = required.filter(col => !header.includes(col))
+    if (missing.length > 0) return { error: `Missing required columns: ${missing.join(', ')}` }
+
+    const rows = []
+    for (let i = 1; i < lines.length; i++) {
+      // Handle quoted fields with commas inside them
+      const cols = []
+      let current = ''
+      let inQuotes = false
+      for (const char of lines[i]) {
+        if (char === '"') { inQuotes = !inQuotes }
+        else if (char === ',' && !inQuotes) { cols.push(current.trim()); current = '' }
+        else { current += char }
+      }
+      cols.push(current.trim())
+
+      const row = {}
+      header.forEach((h, idx) => { row[h] = (cols[idx] || '').replace(/^"|"$/g, '').trim() })
+
+      const ci = parseInt(row.correct_index)
+      if (isNaN(ci) || ci < 0 || ci > 3) return { error: `Row ${i + 1}: correct_index must be 0, 1, 2, or 3 (got "${row.correct_index}")` }
+      if (!row.question_text) return { error: `Row ${i + 1}: question_text is empty` }
+      if (!row.option_a || !row.option_b || !row.option_c || !row.option_d) return { error: `Row ${i + 1}: all four options are required` }
+
+      rows.push({ ...row, correct_index: ci })
+    }
+
+    return { rows }
+  }
+
+  function handleCSVFile(e) {
+    const file = e.target.files[0]
+    if (!file) return
+    setCsvError('')
+    setCsvStatus(null)
+    setCsvPreview([])
+    const reader = new FileReader()
+    reader.onload = (evt) => {
+      const { rows, error } = parseCSV(evt.target.result)
+      if (error) { setCsvError(error); return }
+      setCsvPreview(rows)
+    }
+    reader.readAsText(file)
+  }
+
+  async function importCSV() {
+    if (!csvSetName.trim() || csvPreview.length === 0) return
+    setCsvStatus('loading')
+    setCsvError('')
+
+    const { data: newSet, error: setErr } = await supabase
+      .from('question_sets')
+      .insert([{ name: csvSetName.trim(), subject: csvSubject, user_id: user.id }])
+      .select()
+      .single()
+
+    if (setErr || !newSet) {
+      setCsvStatus('error')
+      setCsvError('Failed to create question set. Please try again.')
+      return
+    }
+
+    const questions = csvPreview.map((row, i) => ({
+      set_id: newSet.id,
+      question_text: row.question_text,
+      option_a: row.option_a,
+      option_b: row.option_b,
+      option_c: row.option_c,
+      option_d: row.option_d,
+      correct_index: row.correct_index,
+      explanation: row.explanation || '',
+      position: i
+    }))
+
+    const { error: qErr } = await supabase.from('questions').insert(questions)
+    if (qErr) {
+      await supabase.from('question_sets').delete().eq('id', newSet.id)
+      setCsvStatus('error')
+      setCsvError('Failed to import questions. Please try again.')
+      return
+    }
+
+    setCsvStatus('success')
+    await fetchSets()
+  }
+
   const optColors = ['var(--opt-a)', 'var(--opt-b)', 'var(--opt-c)', 'var(--opt-d)']
   const optLabels = ['A', 'B', 'C', 'D']
 
@@ -258,7 +382,12 @@ export default function TeacherAdmin({ go }) {
             </button>
             {view === 'sets' && (
               <button className="btn" style={{ fontSize: '0.8rem', padding: '0.45rem 0.9rem' }} onClick={openImportModal}>
-                ↓ Import
+                ↓ Import code
+              </button>
+            )}
+            {view === 'sets' && (
+              <button className="btn" style={{ fontSize: '0.8rem', padding: '0.45rem 0.9rem' }} onClick={openCSVModal}>
+                ↑ Import CSV
               </button>
             )}
             <button className="btn btn-primary" onClick={() => { resetQForm(); view === 'sets' ? setShowSetModal(true) : setShowQModal(true) }}>
@@ -480,6 +609,104 @@ export default function TeacherAdmin({ go }) {
                     onClick={importByCode}
                   >
                     {importStatus === 'loading' ? 'Importing…' : 'Import'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+      {/* CSV IMPORT MODAL */}
+      {showCSVModal && (
+        <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && setShowCSVModal(false)}>
+          <div className="modal">
+            <h2>Import questions from CSV</h2>
+
+            {csvStatus === 'success' ? (
+              <div style={{ textAlign: 'center', padding: '1.5rem 0' }}>
+                <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>✅</div>
+                <p style={{ fontWeight: 700, marginBottom: '0.4rem' }}>Questions imported!</p>
+                <p style={{ color: 'var(--muted)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
+                  {csvPreview.length} question{csvPreview.length !== 1 ? 's' : ''} added to <strong>{csvSetName}</strong>.
+                </p>
+                <button className="btn btn-primary" onClick={() => setShowCSVModal(false)}>View my sets</button>
+              </div>
+            ) : (
+              <>
+                <p style={{ color: 'var(--muted)', fontSize: '0.9rem', marginBottom: '1.25rem' }}>
+                  Upload a CSV file to bulk-import questions into a new question set.
+                </p>
+
+                {/* Download template */}
+                <div style={{
+                  background: 'rgba(108,99,255,0.08)', border: '1px solid rgba(108,99,255,0.2)',
+                  borderRadius: 'var(--radius)', padding: '0.85rem 1rem', marginBottom: '1.25rem',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem'
+                }}>
+                  <div>
+                    <p style={{ fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.2rem' }}>Need a template?</p>
+                    <p style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>Download, fill it in, then upload below.</p>
+                  </div>
+                  <button className="btn" style={{ fontSize: '0.8rem', padding: '0.45rem 0.9rem', flexShrink: 0 }} onClick={downloadTemplate}>
+                    ↓ Template
+                  </button>
+                </div>
+
+                <div className="form-group">
+                  <label>Set name</label>
+                  <input
+                    placeholder="e.g. Vietnam Unit Review"
+                    value={csvSetName}
+                    onChange={e => setCsvSetName(e.target.value)}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Subject</label>
+                  <select value={csvSubject} onChange={e => setCsvSubject(e.target.value)}>
+                    {SUBJECTS.map(s => <option key={s}>{s}</option>)}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label>CSV file</label>
+                  <input
+                    type="file"
+                    accept=".csv"
+                    onChange={handleCSVFile}
+                    style={{ padding: '0.5rem' }}
+                  />
+                </div>
+
+                {/* Preview */}
+                {csvPreview.length > 0 && (
+                  <div style={{
+                    background: 'rgba(0,229,160,0.08)', border: '1px solid rgba(0,229,160,0.25)',
+                    borderRadius: 'var(--radius)', padding: '0.75rem 1rem', marginBottom: '1rem'
+                  }}>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--green)', fontWeight: 600, marginBottom: '0.3rem' }}>
+                      ✓ {csvPreview.length} question{csvPreview.length !== 1 ? 's' : ''} ready to import
+                    </p>
+                    <p style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>
+                      First: "{csvPreview[0].question_text.slice(0, 60)}{csvPreview[0].question_text.length > 60 ? '…' : ''}"
+                    </p>
+                  </div>
+                )}
+
+                {csvError && (
+                  <p style={{ color: 'var(--red)', fontSize: '0.85rem', marginBottom: '1rem' }}>
+                    ⚠ {csvError}
+                  </p>
+                )}
+
+                <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                  <button className="btn" onClick={() => setShowCSVModal(false)}>Cancel</button>
+                  <button
+                    className="btn btn-primary"
+                    disabled={!csvSetName.trim() || csvPreview.length === 0 || csvStatus === 'loading'}
+                    onClick={importCSV}
+                  >
+                    {csvStatus === 'loading' ? 'Importing…' : `Import ${csvPreview.length > 0 ? csvPreview.length + ' questions' : ''}`}
                   </button>
                 </div>
               </>
