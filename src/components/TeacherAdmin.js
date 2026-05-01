@@ -321,7 +321,7 @@ export default function TeacherAdmin({ go }) {
 
     const { data: newSet, error: setErr } = await supabase
       .from('question_sets')
-      .insert([{ name: csvSetName.trim(), subject: csvSubject, user_id: user.id }])
+      .insert([{ name: csvSetName.trim(), subject: csvSubject, teacher_id: user.id }])
       .select()
       .single()
 
