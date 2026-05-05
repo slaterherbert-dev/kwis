@@ -570,6 +570,13 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
               </div>
             </div>
 
+            {/* Rejoin card */}
+            <div className="card" style={{ marginBottom: '1rem', textAlign: 'center', border: '1px solid rgba(108,99,255,0.3)', background: 'rgba(108,99,255,0.06)' }}>
+              <p style={{ fontSize: '0.65rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem' }}>Rejoin game</p>
+              <p style={{ fontFamily: 'monospace', fontSize: '0.72rem', color: 'var(--muted)', marginBottom: '0.35rem' }}>kwis-nine.vercel.app</p>
+              <p style={{ fontFamily: 'Syne', fontWeight: 800, fontSize: '1.6rem', letterSpacing: '0.15em', color: 'var(--accent)' }}>{session?.pin}</p>
+            </div>
+
             <button className="btn btn-full" style={{ background: 'rgba(255,71,87,0.12)', border: '1px solid rgba(255,71,87,0.3)', color: 'var(--red)' }} onClick={endGame}>
               End game now
             </button>
@@ -641,6 +648,14 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
 
           {/* RIGHT COLUMN — leaderboard */}
           <div style={{ width: 220, flexShrink: 0 }}>
+
+            {/* Rejoin card */}
+            <div className="card" style={{ marginBottom: '1rem', textAlign: 'center', border: '1px solid rgba(108,99,255,0.3)', background: 'rgba(108,99,255,0.06)' }}>
+              <p style={{ fontSize: '0.65rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem' }}>Rejoin game</p>
+              <p style={{ fontFamily: 'monospace', fontSize: '0.72rem', color: 'var(--muted)', marginBottom: '0.35rem' }}>kwis-nine.vercel.app</p>
+              <p style={{ fontFamily: 'Syne', fontWeight: 800, fontSize: '1.6rem', letterSpacing: '0.15em', color: 'var(--accent)' }}>{session?.pin}</p>
+            </div>
+
             <div className="card">
               <p style={{ fontSize: '0.75rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>Live standings</p>
               {phase === 'question' && (
