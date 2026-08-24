@@ -1,6 +1,26 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { supabase } from '../supabase'
 
+// Deterministic shuffle: same session + question always produces the same order
+// on every device, but a NEW game session gets a different order — so students
+// can't just memorize "the answer is always C".
+function seededShuffleIndices(n, seedStr) {
+  let seed = 0
+  for (let i = 0; i < seedStr.length; i++) {
+    seed = (seed * 31 + seedStr.charCodeAt(i)) >>> 0
+  }
+  function rand() {
+    seed = (seed * 1103515245 + 12345) >>> 0
+    return seed / 4294967296
+  }
+  const arr = Array.from({ length: n }, (_, i) => i)
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]]
+  }
+  return arr
+}
+
 // ── Chest table ──
 const CHEST_TABLE = [
   { type: 'gold',     amount: 1,  weight: 18, label: '+1 gold',    emoji: '🪙' },
@@ -174,10 +194,12 @@ export default function GoldQuestStudent({ go, gameSession, player }) {
     const qIdx = shuffledOrder[currentIdx]
     const q = questions[qIdx]
     if (!q) return
-    const isCorrect = idx === q.correct_index
+    const order = seededShuffleIndices(4, `${gameSession.id}-${q.id}`)
+    const originalIdx = order[idx]
+    const isCorrect = originalIdx === q.correct_index
     await supabase.from('answers').insert([{
       session_id: gameSession.id, player_id: player.id, question_id: q.id,
-      question_index: qIdx, answer_given: idx, is_correct: isCorrect, points_earned: 0
+      question_index: qIdx, answer_given: originalIdx, is_correct: isCorrect, points_earned: 0
     }])
     if (isCorrect) {
       setStreak(s => s + 1)
@@ -204,42 +226,37 @@ export default function GoldQuestStudent({ go, gameSession, player }) {
       newGold = currentGold + reward.amount
 
     } else if (reward.type === 'steal') {
-      const { data: others } = await supabase.from('players')
-        .select('*').eq('session_id', gameSession.id).neq('id', player.id)
-        .gt('score', 0).order('score', { ascending: false })
-      if (others && others.length > 0) {
-        const victim = others[0]
-        const stealAmt = Math.min(Math.max(1, Math.floor(victim.score * 0.3)), 5)
-        newGold = currentGold + stealAmt
-        target = { nickname: victim.nickname, avatar: victim.avatar, amount: stealAmt }
-        reward.label = `Stole ${stealAmt} gold from ${victim.avatar} ${victim.nickname}!`
-        await supabase.from('players').update({ score: victim.score - stealAmt }).eq('id', victim.id)
-        await supabase.from('steal_notifications').insert([{
-          session_id: gameSession.id, victim_id: victim.id,
-          thief_nickname: player.nickname, thief_avatar: player.avatar, amount: stealAmt
-        }])
-      } else {
+      const { data: result, error } = await supabase.rpc('gq_steal', {
+        p_thief_id: player.id,
+        p_session_id: gameSession.id
+      })
+      if (error || !result || result.error) {
+        newGold = currentGold + 1
+        reward.type = 'gold'; reward.label = '+1 gold (steal failed!)'; reward.emoji = '🪙'
+      } else if (result.no_target) {
         newGold = currentGold + 1
         reward.type = 'gold'; reward.label = '+1 gold (no targets!)'; reward.emoji = '🪙'
+      } else {
+        newGold = result.new_gold
+        target = { nickname: result.victim_nickname, avatar: result.victim_avatar, amount: result.amount }
+        reward.label = `Stole ${result.amount} gold from ${result.victim_avatar} ${result.victim_nickname}!`
       }
 
     } else if (reward.type === 'swap') {
-      const { data: others } = await supabase.from('players')
-        .select('*').eq('session_id', gameSession.id).neq('id', player.id)
-        .order('score', { ascending: false })
-      if (others && others.length > 0 && others[0].score > currentGold) {
-        const victim = others[0]
-        newGold = victim.score
-        target = { nickname: victim.nickname, avatar: victim.avatar, amount: victim.score }
-        reward.label = `Swapped with ${victim.avatar} ${victim.nickname}! +${victim.score - currentGold} gold`
-        await supabase.from('players').update({ score: currentGold }).eq('id', victim.id)
-        await supabase.from('steal_notifications').insert([{
-          session_id: gameSession.id, victim_id: victim.id,
-          thief_nickname: player.nickname, thief_avatar: player.avatar, amount: -1
-        }])
-      } else {
+      const { data: result, error } = await supabase.rpc('gq_swap', {
+        p_thief_id: player.id,
+        p_session_id: gameSession.id
+      })
+      if (error || !result || result.error) {
+        newGold = currentGold + 2
+        reward.type = 'gold'; reward.label = '+2 gold (swap failed!)'; reward.emoji = '🪙'
+      } else if (result.no_target) {
         newGold = currentGold + 2
         reward.type = 'gold'; reward.label = '+2 gold (no richer targets!)'; reward.emoji = '🪙'
+      } else {
+        newGold = result.new_gold
+        target = { nickname: result.victim_nickname, avatar: result.victim_avatar, amount: result.new_gold }
+        reward.label = `Swapped with ${result.victim_avatar} ${result.victim_nickname}! +${result.new_gold - currentGold} gold`
       }
 
     } else if (reward.type === 'multiply') {
@@ -284,7 +301,10 @@ export default function GoldQuestStudent({ go, gameSession, player }) {
   const qIdx = shuffledOrder[currentIdx]
   const q = questions[qIdx]
   const optLabels = ['A', 'B', 'C', 'D']
-  const optKeys   = ['option_a', 'option_b', 'option_c', 'option_d']
+  const optKeysOriginal = ['option_a', 'option_b', 'option_c', 'option_d']
+  const optOrder = q ? seededShuffleIndices(4, `${gameSession.id}-${q.id}`) : [0, 1, 2, 3]
+  const optKeys = optOrder.map(i => optKeysOriginal[i])
+  const correctDisplayIndex = q ? optOrder.indexOf(q.correct_index) : -1
   const totalDuration = gameSession.gold_quest_duration_seconds ? gameSession.gold_quest_duration_seconds * 1000 : null
   const timerPct  = (totalDuration && timeLeft !== null) ? (timeLeft / totalDuration) * 100 : 100
   const timerColor = timeLeft === null ? 'var(--accent)' : timeLeft > 60000 ? 'var(--accent)' : timeLeft > 30000 ? 'var(--yellow, #ffaa32)' : 'var(--red)'
@@ -436,8 +456,8 @@ export default function GoldQuestStudent({ go, gameSession, player }) {
             {optKeys.map((key, i) => {
               let extra = ''
               if (answered) {
-                if (i === q.correct_index) extra = 'correct-reveal'
-                else if (i === myAnswer && i !== q.correct_index) extra = 'wrong-reveal'
+                if (i === correctDisplayIndex) extra = 'correct-reveal'
+                else if (i === myAnswer && i !== correctDisplayIndex) extra = 'wrong-reveal'
               }
               return (
                 <button key={key} className={`opt-btn opt-${i} ${extra}`}
@@ -466,7 +486,7 @@ export default function GoldQuestStudent({ go, gameSession, player }) {
                 )}
               </div>
               <p style={{ fontSize: '0.82rem', color: 'var(--muted)', marginBottom: '0.5rem' }}>
-                Correct answer: <strong style={{ color: 'var(--text)' }}>{optLabels[q.correct_index]}</strong>
+                Correct answer: <strong style={{ color: 'var(--text)' }}>{optLabels[correctDisplayIndex]}</strong>
               </p>
               <button className="btn btn-primary btn-full" onClick={nextQuestion}>Next question →</button>
             </div>
