@@ -190,7 +190,7 @@ export default function TeacherAdmin({ go }) {
 
     const { set: srcSet, questions: srcQuestions } = data
 
-    if (srcSet.user_id === user.id) {
+    if (srcSet.teacher_id === user.id) {
       setImportStatus('error')
       setImportError("That's one of your own sets — no need to import it!")
       return
@@ -201,7 +201,7 @@ export default function TeacherAdmin({ go }) {
       .insert([{
         name: srcSet.name,
         subject: srcSet.subject,
-        user_id: user.id
+        teacher_id: user.id
       }])
       .select()
       .single()
