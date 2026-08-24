@@ -57,12 +57,13 @@ export default function StudentJoin({ go, setGameSession, setPlayer }) {
     goToPhaseScreen(session)
   }
 
-  // Send a rejoining student to whichever screen matches the game's current phase
+  // Send a rejoining/late student to whichever screen matches the game's current mode + phase
   function goToPhaseScreen(session) {
+    const isGoldQuest = session.game_mode === 'gold_quest'
     if (session.phase === 'lobby' || session.phase === 'pick') go('student-lobby')
-    else if (session.phase === 'gq-live') go('gold-quest-play')
     else if (session.phase === 'ended' || session.phase === 'final') go('student-final')
-    else go('student-game') // countdown, question, revealed
+    else if (isGoldQuest) go('gold-quest-play')
+    else go('student-game') // countdown, question, revealed (classic mode)
   }
 
   return (
