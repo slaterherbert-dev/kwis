@@ -18,10 +18,28 @@ export default function StudentJoin({ go, setGameSession, setPlayer }) {
 
     const { data: session } = await supabase.from('game_sessions').select('*').eq('pin', pin).single()
     if (!session) { setPinError('PIN not found — ask your teacher'); setLoading(false); return }
-    if (session.phase !== 'lobby') { setPinError('Game already started — ask your teacher'); setLoading(false); return }
 
-    const { data: existing } = await supabase.from('players').select('id').eq('session_id', session.id).eq('nickname', nickname.trim())
-    if (existing && existing.length > 0) { setNickError('That nickname is taken — pick another'); setLoading(false); return }
+    // Check whether this nickname already belongs to a player in this session —
+    // if so, this is a REJOIN, and should be allowed no matter what phase the game is in.
+    const { data: existing } = await supabase.from('players').select('*').eq('session_id', session.id).eq('nickname', nickname.trim())
+    const existingPlayer = existing && existing.length > 0 ? existing[0] : null
+
+    if (existingPlayer) {
+      if (existingPlayer.kicked) {
+        setNickError('That nickname was removed from the game — pick another')
+        setLoading(false)
+        return
+      }
+      setGameSession(session)
+      setPlayer(existingPlayer)
+      setLoading(false)
+      goToPhaseScreen(session)
+      return
+    }
+
+    // No existing player with that nickname — this is a brand-new join.
+    // New players can only join while the game is still in the lobby.
+    if (session.phase !== 'lobby') { setPinError('Game already started — ask your teacher'); setLoading(false); return }
 
     const avatar = AVATARS[Math.floor(Math.random() * AVATARS.length)]
     const { data: player } = await supabase.from('players').insert([{
@@ -32,6 +50,14 @@ export default function StudentJoin({ go, setGameSession, setPlayer }) {
     setPlayer(player)
     setLoading(false)
     go('student-lobby')
+  }
+
+  // Send a rejoining student to whichever screen matches the game's current phase
+  function goToPhaseScreen(session) {
+    if (session.phase === 'lobby' || session.phase === 'pick') go('student-lobby')
+    else if (session.phase === 'gq-live') go('gold-quest-play')
+    else if (session.phase === 'ended' || session.phase === 'final') go('student-final')
+    else go('student-game') // countdown, question, revealed
   }
 
   return (
