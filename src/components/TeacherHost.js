@@ -1,6 +1,26 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
 
+// Deterministic shuffle: same session + question always produces the same order
+// on every device (teacher + all students), but a NEW game session gets a
+// different order — so students can't just memorize "the answer is always C".
+function seededShuffleIndices(n, seedStr) {
+  let seed = 0
+  for (let i = 0; i < seedStr.length; i++) {
+    seed = (seed * 31 + seedStr.charCodeAt(i)) >>> 0
+  }
+  function rand() {
+    seed = (seed * 1103515245 + 12345) >>> 0
+    return seed / 4294967296
+  }
+  const arr = Array.from({ length: n }, (_, i) => i)
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]]
+  }
+  return arr
+}
+
 const TIMER_SECONDS = 20
 const GQ_DURATION_OPTIONS = [
   { label: '3 min', seconds: 180 },
@@ -615,22 +635,27 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem', marginBottom: '1rem' }}>
-              {['option_a', 'option_b', 'option_c', 'option_d'].map((opt, i) => (
-                <div key={opt} style={{
-                  padding: '0.9rem 1rem', borderRadius: 'var(--radius)',
-                  background: phase === 'revealed'
-                    ? i === q.correct_index ? `rgba(0,229,160,0.15)` : 'rgba(255,255,255,0.03)'
-                    : `${optColors[i]}22`,
-                  border: phase === 'revealed'
-                    ? i === q.correct_index ? '2px solid var(--green)' : '1px solid var(--border)'
-                    : `1px solid ${optColors[i]}55`,
-                  opacity: phase === 'revealed' && i !== q.correct_index ? 0.4 : 1,
-                  transition: 'all 0.3s'
-                }}>
-                  <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--muted)', display: 'block', marginBottom: '0.2rem' }}>{optLabels[i]}</span>
-                  <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>{q[opt]}</span>
-                </div>
-              ))}
+              {(() => {
+                const optKeysOriginal = ['option_a', 'option_b', 'option_c', 'option_d']
+                const order = seededShuffleIndices(4, `${session.id}-${q.id}`)
+                const correctDisplayIndex = order.indexOf(q.correct_index)
+                return order.map((origIdx, i) => (
+                  <div key={optKeysOriginal[origIdx]} style={{
+                    padding: '0.9rem 1rem', borderRadius: 'var(--radius)',
+                    background: phase === 'revealed'
+                      ? i === correctDisplayIndex ? `rgba(0,229,160,0.15)` : 'rgba(255,255,255,0.03)'
+                      : `${optColors[i]}22`,
+                    border: phase === 'revealed'
+                      ? i === correctDisplayIndex ? '2px solid var(--green)' : '1px solid var(--border)'
+                      : `1px solid ${optColors[i]}55`,
+                    opacity: phase === 'revealed' && i !== correctDisplayIndex ? 0.4 : 1,
+                    transition: 'all 0.3s'
+                  }}>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--muted)', display: 'block', marginBottom: '0.2rem' }}>{optLabels[i]}</span>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>{q[optKeysOriginal[origIdx]]}</span>
+                  </div>
+                ))
+              })()}
             </div>
 
             {phase === 'revealed' && q.explanation && (
