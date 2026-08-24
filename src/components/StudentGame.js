@@ -30,6 +30,7 @@ export default function StudentGame({ go, gameSession, player, setPlayer }) {
 
   useEffect(() => {
     fetchQuestions()
+    syncCurrentSession()
     const sub = supabase.channel('student-game-' + gameSession.id)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'game_sessions', filter: `id=eq.${gameSession.id}` }, (payload) => {
         handleSessionUpdate(payload.new)
@@ -40,6 +41,39 @@ export default function StudentGame({ go, gameSession, player, setPlayer }) {
       .subscribe()
     return () => { supabase.removeChannel(sub); clearInterval(timerRef.current) }
   }, [])
+
+  // Pull the session's current state directly — needed so a student who rejoins
+  // mid-game lands on the actual current question instead of a stale/frozen screen.
+  async function syncCurrentSession() {
+    const { data: freshSession } = await supabase.from('game_sessions').select('*').eq('id', gameSession.id).single()
+    if (!freshSession) return
+    setSession(freshSession)
+    if (freshSession.phase === 'ended') { go('student-final'); return }
+    if (freshSession.current_question !== null && freshSession.current_question !== undefined) {
+      lastQRef.current = freshSession.current_question
+      setCurrentQ(freshSession.current_question)
+    }
+    if (freshSession.phase === 'revealed') {
+      setPhase('revealed')
+    } else if (freshSession.phase === 'question') {
+      setPhase('question')
+      startTimer()
+    }
+    // Restore whether this player already answered the current question
+    const { data: existingAnswer } = await supabase
+      .from('answers')
+      .select('*')
+      .eq('session_id', gameSession.id)
+      .eq('player_id', player.id)
+      .eq('question_index', freshSession.current_question)
+      .maybeSingle()
+    if (existingAnswer) {
+      setAnswered(true)
+      setMyAnswer(existingAnswer.answer_given)
+      setPointsEarned(existingAnswer.points_earned)
+      clearInterval(timerRef.current)
+    }
+  }
 
   async function fetchQuestions() {
     const { data } = await supabase.from('questions').select('*').eq('set_id', gameSession.set_id).order('position')
