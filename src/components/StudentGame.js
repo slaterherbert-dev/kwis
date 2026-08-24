@@ -1,6 +1,26 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { supabase } from '../supabase'
 
+// Deterministic shuffle: same session + question always produces the same order
+// on every device, but a NEW game session gets a different order — so students
+// can't just memorize "the answer is always C".
+function seededShuffleIndices(n, seedStr) {
+  let seed = 0
+  for (let i = 0; i < seedStr.length; i++) {
+    seed = (seed * 31 + seedStr.charCodeAt(i)) >>> 0
+  }
+  function rand() {
+    seed = (seed * 1103515245 + 12345) >>> 0
+    return seed / 4294967296
+  }
+  const arr = Array.from({ length: n }, (_, i) => i)
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]]
+  }
+  return arr
+}
+
 const TIMER_SECONDS = 20
 
 function useTheme() {
@@ -29,8 +49,10 @@ export default function StudentGame({ go, gameSession, player, setPlayer }) {
   const lastQRef = useRef(-1)
 
   useEffect(() => {
-    fetchQuestions()
-    syncCurrentSession()
+    (async () => {
+      const qs = await fetchQuestions()
+      await syncCurrentSession(qs)
+    })()
     const sub = supabase.channel('student-game-' + gameSession.id)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'game_sessions', filter: `id=eq.${gameSession.id}` }, (payload) => {
         handleSessionUpdate(payload.new)
@@ -44,7 +66,7 @@ export default function StudentGame({ go, gameSession, player, setPlayer }) {
 
   // Pull the session's current state directly — needed so a student who rejoins
   // mid-game lands on the actual current question instead of a stale/frozen screen.
-  async function syncCurrentSession() {
+  async function syncCurrentSession(qs) {
     const { data: freshSession } = await supabase.from('game_sessions').select('*').eq('id', gameSession.id).single()
     if (!freshSession) return
     setSession(freshSession)
@@ -69,7 +91,13 @@ export default function StudentGame({ go, gameSession, player, setPlayer }) {
       .maybeSingle()
     if (existingAnswer) {
       setAnswered(true)
-      setMyAnswer(existingAnswer.answer_given)
+      // answer_given is stored as the ORIGINAL option index — convert it back to
+      // this question's shuffled display position so highlighting lines up.
+      const curQ = (qs || [])[freshSession.current_question]
+      if (curQ) {
+        const order = seededShuffleIndices(4, `${gameSession.id}-${curQ.id}`)
+        setMyAnswer(order.indexOf(existingAnswer.answer_given))
+      }
       setPointsEarned(existingAnswer.points_earned)
       clearInterval(timerRef.current)
     }
@@ -77,7 +105,9 @@ export default function StudentGame({ go, gameSession, player, setPlayer }) {
 
   async function fetchQuestions() {
     const { data } = await supabase.from('questions').select('*').eq('set_id', gameSession.set_id).order('position')
-    setQuestions(data || [])
+    const qs = data || []
+    setQuestions(qs)
+    return qs
   }
 
   function handleSessionUpdate(newSession) {
@@ -123,7 +153,9 @@ export default function StudentGame({ go, gameSession, player, setPlayer }) {
 
     const q = questions[currentQ]
     if (!q) return
-    const isCorrect = idx === q.correct_index
+    const order = seededShuffleIndices(4, `${gameSession.id}-${q.id}`)
+    const originalIdx = order[idx]
+    const isCorrect = originalIdx === q.correct_index
     const pts = isCorrect ? Math.max(500, Math.round(1000 * (timer / TIMER_SECONDS))) : 0
     setPointsEarned(pts)
 
@@ -135,7 +167,7 @@ export default function StudentGame({ go, gameSession, player, setPlayer }) {
       player_id: player.id,
       question_id: q.id,
       question_index: currentQ,
-      answer_given: idx,
+      answer_given: originalIdx,
       is_correct: isCorrect,
       points_earned: pts
     }])
@@ -149,7 +181,10 @@ export default function StudentGame({ go, gameSession, player, setPlayer }) {
 
   const q = questions[currentQ]
   const optLabels = ['A', 'B', 'C', 'D']
-  const optKeys = ['option_a', 'option_b', 'option_c', 'option_d']
+  const optKeysOriginal = ['option_a', 'option_b', 'option_c', 'option_d']
+  const optOrder = q ? seededShuffleIndices(4, `${gameSession.id}-${q.id}`) : [0, 1, 2, 3]
+  const optKeys = optOrder.map(i => optKeysOriginal[i])
+  const correctDisplayIndex = q ? optOrder.indexOf(q.correct_index) : -1
   const timerPct = (timer / TIMER_SECONDS) * 100
   const timerColor = timer > 10 ? 'var(--green)' : timer > 5 ? 'var(--yellow)' : 'var(--red)'
   const circumference = 2 * Math.PI * 22
@@ -207,8 +242,8 @@ export default function StudentGame({ go, gameSession, player, setPlayer }) {
         {optKeys.map((key, i) => {
           let extra = ''
           if (answered) {
-            if (i === q.correct_index && phase === 'revealed') extra = 'correct-reveal'
-            else if (i === myAnswer && i !== q.correct_index && phase === 'revealed') extra = 'wrong-reveal'
+            if (i === correctDisplayIndex && phase === 'revealed') extra = 'correct-reveal'
+            else if (i === myAnswer && i !== correctDisplayIndex && phase === 'revealed') extra = 'wrong-reveal'
             else if (i === myAnswer) extra = 'selected'
           }
           return (
@@ -232,14 +267,14 @@ export default function StudentGame({ go, gameSession, player, setPlayer }) {
       {answered && phase === 'revealed' && (
         <div style={{
           borderRadius: 'var(--radius)', padding: '1rem 1.25rem', textAlign: 'center',
-          background: myAnswer === q.correct_index ? 'rgba(0,229,160,0.12)' : 'rgba(255,71,87,0.12)',
-          border: `1px solid ${myAnswer === q.correct_index ? 'rgba(0,229,160,0.35)' : 'rgba(255,71,87,0.3)'}`,
+          background: myAnswer === correctDisplayIndex ? 'rgba(0,229,160,0.12)' : 'rgba(255,71,87,0.12)',
+          border: `1px solid ${myAnswer === correctDisplayIndex ? 'rgba(0,229,160,0.35)' : 'rgba(255,71,87,0.3)'}`,
           marginBottom: '0.75rem'
         }}>
-          <p style={{ fontWeight: 700, fontSize: '1.1rem', color: myAnswer === q.correct_index ? 'var(--green)' : 'var(--red)', marginBottom: myAnswer === q.correct_index ? '0.25rem' : 0 }}>
-            {myAnswer === q.correct_index ? '✓ Correct!' : '✗ Not quite'}
+          <p style={{ fontWeight: 700, fontSize: '1.1rem', color: myAnswer === correctDisplayIndex ? 'var(--green)' : 'var(--red)', marginBottom: myAnswer === correctDisplayIndex ? '0.25rem' : 0 }}>
+            {myAnswer === correctDisplayIndex ? '✓ Correct!' : '✗ Not quite'}
           </p>
-          {myAnswer === q.correct_index && pointsEarned > 0 && (
+          {myAnswer === correctDisplayIndex && pointsEarned > 0 && (
             <p className="score-float" style={{ fontFamily: 'Syne', fontWeight: 800, fontSize: '1.5rem', color: 'var(--green)' }}>+{pointsEarned} pts</p>
           )}
         </div>
