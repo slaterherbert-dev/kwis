@@ -38,8 +38,13 @@ export default function StudentJoin({ go, setGameSession, setPlayer }) {
     }
 
     // No existing player with that nickname — this is a brand-new join.
-    // New players can only join while the game is still in the lobby.
-    if (session.phase !== 'lobby') { setPinError('Game already started — ask your teacher'); setLoading(false); return }
+    // New players can join at any point in the game, including mid-question —
+    // as long as the game hasn't ended yet.
+    if (session.phase === 'ended' || session.phase === 'final') {
+      setPinError('This game has already ended')
+      setLoading(false)
+      return
+    }
 
     const avatar = AVATARS[Math.floor(Math.random() * AVATARS.length)]
     const { data: player } = await supabase.from('players').insert([{
@@ -49,7 +54,7 @@ export default function StudentJoin({ go, setGameSession, setPlayer }) {
     setGameSession(session)
     setPlayer(player)
     setLoading(false)
-    go('student-lobby')
+    goToPhaseScreen(session)
   }
 
   // Send a rejoining student to whichever screen matches the game's current phase
