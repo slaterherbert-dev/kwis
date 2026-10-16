@@ -62,6 +62,7 @@ export default function StudentJoin({ go, setGameSession, setPlayer }) {
     const isGoldQuest = session.game_mode === 'gold_quest'
     if (session.phase === 'lobby' || session.phase === 'pick') go('student-lobby')
     else if (session.phase === 'ended' || session.phase === 'final') go('student-final')
+    else if (session.game_mode === 'one_vs_100') go('ovh-play')
     else if (isGoldQuest) go('gold-quest-play')
     else go('student-game') // countdown, question, revealed (classic mode)
   }
