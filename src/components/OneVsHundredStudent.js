@@ -64,7 +64,7 @@ export default function OneVsHundredStudent({ go, gameSession, player }) {
       .subscribe()
 
     return () => { supabase.removeChannel(sub); clearInterval(timerRef.current) }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
   async function fetchPlayers() {
     const { data } = await supabase.from('players').select('*').eq('session_id', gameSession.id).order('score', { ascending: false })

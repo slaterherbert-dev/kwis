@@ -76,7 +76,7 @@ export default function OneVsHundredHost({ session, questions, players, answers,
       supabase.from('players').update({ eliminated_at: -1 }).in('id', newcomers.map(p => p.id))
         .then(() => fetchPlayers(session.id))
     }
-  }, [players, stage]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [players, stage])
 
   // ── Derived values ──
   const hotSeat = players.find(p => p.id === hotSeatId)
