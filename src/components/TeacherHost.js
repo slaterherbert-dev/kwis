@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
+import OneVsHundredHost from './OneVsHundredHost'
 
 // Deterministic shuffle: same session + question always produces the same order
 // on every device (teacher + all students), but a NEW game session gets a
@@ -40,10 +41,10 @@ function formatTime(seconds) {
 }
 
 export default function TeacherHost({ go, gameSession, setGameSession }) {
-  const [phase, setPhase] = useState('pick') // pick | lobby | countdown | question | revealed | gq-live | final
+  const [phase, setPhase] = useState('pick') // pick | lobby | countdown | question | revealed | gq-live | ovh | final
   const [sets, setSets] = useState([])
   const [selectedSet, setSelectedSet] = useState(null)
-  const [gameMode, setGameMode] = useState('classic') // classic | gold_quest
+  const [gameMode, setGameMode] = useState('classic') // classic | gold_quest | one_vs_100
   const [gqDuration, setGqDuration] = useState(300) // seconds, default 5 min
   const [questions, setQuestions] = useState([])
   const [currentQ, setCurrentQ] = useState(0)
@@ -116,6 +117,14 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
   }
 
   async function startGame() {
+    if (gameMode === 'one_vs_100') {
+      // 1 vs. 100 runs in its own component (OneVsHundredHost.js)
+      await supabase.from('game_sessions').update({ phase: 'ovh-pick' }).eq('id', session.id)
+      await fetchPlayers(session.id)
+      await fetchAnswers(session.id)
+      setPhase('ovh')
+      return
+    }
     if (gameMode === 'gold_quest') {
       const endsAt = new Date(Date.now() + gqDuration * 1000).toISOString()
       await supabase.from('game_sessions').update({ phase: 'question', ends_at: endsAt }).eq('id', session.id)
@@ -308,6 +317,8 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
   function playerCorrect(playerId) { return answers.filter(a => a.player_id === playerId && a.is_correct).length }
   const allFinished = players.length > 0 && players.every(p => playerProgress(p.id) >= totalQuestions)
   const isGQ = gameMode === 'gold_quest'
+  const isOVH = gameMode === 'one_vs_100'
+  const fmtScore = (n) => isOVH ? `$${(n || 0).toLocaleString()}` : isGQ ? `🪙 ${(n || 0).toLocaleString()}` : `${(n || 0).toLocaleString()} pts`
 
   // GQ timer display helpers
   const gqTimerPct = gqTimeLeft !== null ? (gqTimeLeft / gqDuration) * 100 : 100
@@ -351,6 +362,16 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
             <div style={{ fontSize: '1.5rem', marginBottom: '0.35rem' }}>🪙</div>
             <p style={{ fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.2rem' }}>Gold Quest</p>
             <p style={{ fontSize: '0.75rem', color: 'var(--muted)', lineHeight: 1.4 }}>Self-paced with treasure chests and steals</p>
+          </div>
+          <div className="card-sm" style={{
+            flex: 1, cursor: 'pointer', textAlign: 'center', padding: '1rem 0.75rem',
+            border: gameMode === 'one_vs_100' ? '2px solid var(--red)' : '',
+            background: gameMode === 'one_vs_100' ? 'rgba(255,71,87,0.08)' : '',
+            transition: 'all 0.2s'
+          }} onClick={() => setGameMode('one_vs_100')}>
+            <div style={{ fontSize: '1.5rem', marginBottom: '0.35rem' }}>🔥</div>
+            <p style={{ fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.2rem' }}>1 vs. 100</p>
+            <p style={{ fontSize: '0.75rem', color: 'var(--muted)', lineHeight: 1.4 }}>One student in the hot seat vs. the whole class</p>
           </div>
         </div>
 
@@ -421,7 +442,7 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           {isGQ && <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>🪙</div>}
           <p style={{ fontSize: '0.8rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.5rem' }}>
-            {isGQ ? 'Gold Quest — ' : ''}Game PIN
+            {isGQ ? 'Gold Quest — ' : isOVH ? '1 vs. 100 — ' : ''}Game PIN
           </p>
           <div className="gradient-text" style={{ fontSize: '4.5rem', fontWeight: 800, fontFamily: 'Syne', letterSpacing: '0.2em' }}>{session?.pin}</div>
           <div style={{
@@ -459,8 +480,8 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
             {players.length === 0 && <p style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>Waiting for students…</p>}
           </div>
         </div>
-        <button className="btn btn-primary btn-full btn-lg" disabled={players.length < 1} onClick={startGame}>
-          {isGQ ? 'Start Gold Quest' : 'Start game'} — {players.length} player{players.length !== 1 ? 's' : ''} ready
+        <button className="btn btn-primary btn-full btn-lg" disabled={players.length < (isOVH ? 2 : 1)} onClick={startGame}>
+          {isGQ ? 'Start Gold Quest' : isOVH ? 'Start 1 vs. 100' : 'Start game'} — {players.length} player{players.length !== 1 ? 's' : ''} ready
         </button>
       </div>
     </div>
@@ -472,6 +493,20 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
       <p style={{ color: 'var(--muted)', marginBottom: '1rem' }}>Get ready!</p>
       <div className="countdown-num" key={countdown}>{countdown}</div>
     </div>
+  )
+
+  // ── 1 vs. 100 (lives in OneVsHundredHost.js) ──
+  if (phase === 'ovh') return (
+    <OneVsHundredHost
+      session={session}
+      questions={questions}
+      players={players}
+      answers={answers}
+      selectedSet={selectedSet}
+      fetchPlayers={fetchPlayers}
+      kickPlayer={kickPlayer}
+      onEndGame={endGame}
+    />
   )
 
   // ══════════════════════════════════════════════
@@ -726,7 +761,7 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
         <div className="container">
           {isGQ && <div style={{ fontSize: '1.5rem', textAlign: 'center', marginBottom: '0.25rem' }}>🪙</div>}
           <h1 className="gradient-text" style={{ fontSize: '2.5rem', fontWeight: 800, textAlign: 'center', marginBottom: '0.25rem' }}>
-            {isGQ ? 'Gold Quest — Results' : 'Game over!'}
+            {isGQ ? 'Gold Quest — Results' : isOVH ? '1 vs. 100 — Final Winnings' : 'Game over!'}
           </h1>
           <p style={{ color: 'var(--muted)', textAlign: 'center', marginBottom: '2rem', fontSize: '0.9rem' }}>{selectedSet?.name}</p>
 
@@ -734,7 +769,7 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
             {podiumOrder.map((p, i) => p && (
               <div key={p.id} className="podium-slot">
                 <div className="podium-name">{p.avatar} {p.nickname}</div>
-                <div className="podium-score">{isGQ ? `🪙 ${p.score.toLocaleString()}` : `${p.score.toLocaleString()} pts`}</div>
+                <div className="podium-score">{fmtScore(p.score)}</div>
                 <div className={`podium-bar ${podiumClasses[i]}`}>{podiumEmojis[i]}</div>
               </div>
             ))}
@@ -746,10 +781,7 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
                 <div className={`lb-rank ${i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : ''}`}>{['🥇','🥈','🥉'][i] || i + 1}</div>
                 <div style={{ fontSize: '1rem' }}>{p.avatar}</div>
                 <div className="lb-name">{p.nickname}</div>
-                <div className="lb-score">
-                  {isGQ && <span style={{ color: 'var(--yellow, #ffaa32)' }}>🪙 </span>}
-                  {p.score.toLocaleString()}{!isGQ && ' pts'}
-                </div>
+                <div className="lb-score">{fmtScore(p.score)}</div>
               </div>
             ))}
           </div>
