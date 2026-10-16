@@ -9,6 +9,7 @@ import StudentLobby from './components/StudentLobby'
 import StudentGame from './components/StudentGame'
 import StudentFinal from './components/StudentFinal'
 import GoldQuestStudent from './components/GoldQuestStudent'
+import OneVsHundredStudent from './components/OneVsHundredStudent'
 import './App.css'
 
 // Teacher-only screens — redirect to login if not authed
@@ -51,6 +52,7 @@ function AppInner() {
       {screen === 'student-game' && <StudentGame go={go} gameSession={gameSession} player={player} setPlayer={setPlayer} />}
       {screen === 'student-final'&& <StudentFinal go={go} gameSession={gameSession} player={player} />}
       {screen === 'gold-quest-play' && <GoldQuestStudent go={go} gameSession={gameSession} player={player} setPlayer={setPlayer} />}
+      {screen === 'ovh-play'     && <OneVsHundredStudent go={go} gameSession={gameSession} player={player} />}
     </div>
   )
 }
