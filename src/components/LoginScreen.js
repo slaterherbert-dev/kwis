@@ -24,8 +24,8 @@ export default function LoginScreen({ go }) {
 
     if (mode === 'login') {
       const { error } = await signIn(email, password)
+      // On success, App.js opens teacher home once the login is registered
       if (error) setError('Incorrect email or password.')
-      else go('landing')
     } else {
       const { error } = await signUp(email, password)
       if (error) setError(error.message)
@@ -136,6 +136,8 @@ export default function LoginScreen({ go }) {
           </button>
         </p>
       </div>
+
+      <button className="back-btn" style={{ marginTop: '1.5rem' }} onClick={() => go('landing')}>← Back</button>
     </div>
   )
 }

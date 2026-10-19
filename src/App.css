@@ -482,3 +482,44 @@ textarea { resize: vertical; min-height: 80px; }
   .screen { padding: 1rem; }
   .opt-btn { font-size: 0.9rem; padding: 0.9rem 1rem; }
 }
+
+/* ── LANDING + TEACHER HOME ── */
+.join-btn { font-size: 1.25rem; padding: 1.1rem 3rem; }
+.text-link {
+  background: none; border: none; padding: 0.25rem;
+  color: var(--muted); font-family: inherit; font-size: 0.9rem;
+  text-decoration: underline; text-underline-offset: 3px; cursor: pointer;
+}
+.text-link:hover { color: var(--text); }
+
+.home-header {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 1rem; flex-wrap: wrap; margin-bottom: 2.5rem;
+}
+.home-wordmark { font-family: 'Syne', sans-serif; font-size: 1.6rem; font-weight: 800; letter-spacing: -1px; }
+.home-email { color: var(--muted); font-size: 0.85rem; }
+.home-greeting { font-size: 2.4rem; font-weight: 800; letter-spacing: -1px; margin-bottom: 0.25rem; }
+
+.tool-grid {
+  display: grid; gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+.tool-tile {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 0.4rem;
+  text-align: left; padding: 1.5rem; cursor: pointer;
+  background: var(--surface); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--radius-lg);
+  font-family: inherit; transition: border-color 0.15s;
+}
+.tool-tile:hover { border-color: var(--accent); }
+.tool-tile:focus-visible, .text-link:focus-visible, .btn:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 3px;
+}
+.tool-icon { font-size: 2rem; margin-bottom: 0.4rem; }
+.tool-title { font-family: 'Syne', sans-serif; font-size: 1.1rem; font-weight: 700; display: flex; align-items: center; }
+.tool-desc { color: var(--muted); font-size: 0.85rem; line-height: 1.5; }
+
+@media (max-width: 600px) {
+  .home-greeting { font-size: 1.8rem; }
+  .home-email { display: none; }
+}
