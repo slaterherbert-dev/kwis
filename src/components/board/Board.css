@@ -137,6 +137,21 @@
 .w-sound-loud .w-meter-fill { background: #ff4757; }
 .w-meter-limit { position: absolute; top: 0; bottom: 0; width: 3px; background: var(--tone-fg); opacity: 0.6; }
 
+/* ── IMAGE ── */
+.w-image { position: relative; height: 100%; display: flex; flex-direction: column; padding: 0.5cqw; }
+.w-image img { flex: 1; min-height: 0; width: 100%; border-radius: 0.6cqw; user-select: none; }
+.w-image-caption { font-size: 1.3cqw; font-weight: 500; text-align: center; padding: 0.4em 0.4em 0.1em; outline: none; }
+.w-image-caption:empty::before { content: attr(data-placeholder); opacity: 0.4; }
+.w-image-error { position: absolute; left: 0; right: 0; bottom: 0.5cqw; text-align: center; }
+.w-image-empty {
+  height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.6cqw;
+  text-align: center; margin: 0.6cqw; border-radius: 0.8cqw; outline: none;
+  border: 2px dashed color-mix(in srgb, var(--tone-fg) 25%, transparent);
+}
+.w-image-empty:focus { border-color: #6c63ff; background: rgba(108, 99, 255, 0.06); }
+.w-image-empty.over { border-color: #6c63ff; background: rgba(108, 99, 255, 0.12); }
+.w-error { color: #d93545; opacity: 1; }
+
 /* ── TOOLBAR ── */
 .bt {
   position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 1000;

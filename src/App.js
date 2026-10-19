@@ -13,7 +13,7 @@ import GoldQuestStudent from './components/GoldQuestStudent'
 import OneVsHundredStudent from './components/OneVsHundredStudent'
 import './App.css'
 
-// The Board only downloads when a teacher opens it, so students joining
+// Bord only downloads when a teacher opens it, so students joining
 // a game on Chromebooks never load it.
 const Board = lazy(() => import('./components/Board'))
 
@@ -22,8 +22,11 @@ const TEACHER_SCREENS = ['teacher-home', 'admin', 'host', 'board']
 
 // Teacher screens get a web address (#home, #board, ...) so they can be
 // bookmarked and survive a refresh. Student screens never touch the address.
-const SCREEN_TO_HASH = { 'teacher-home': 'home', admin: 'sets', host: 'host', board: 'board' }
-const HASH_TO_SCREEN = Object.fromEntries(Object.entries(SCREEN_TO_HASH).map(([s, h]) => [h, s]))
+const SCREEN_TO_HASH = { 'teacher-home': 'home', admin: 'sets', host: 'host', board: 'bord' }
+const HASH_TO_SCREEN = {
+  ...Object.fromEntries(Object.entries(SCREEN_TO_HASH).map(([s, h]) => [h, s])),
+  board: 'board', // older #board bookmarks still open Bord
+}
 
 function screenFromHash() {
   return HASH_TO_SCREEN[window.location.hash.replace('#', '')] || null
@@ -52,7 +55,7 @@ function AppInner() {
   const [screen, setScreen] = useState('landing')
   const [gameSession, setGameSession] = useState(null)
   const [player, setPlayer] = useState(null)
-  // A teacher page someone asked for before logging in (e.g. a #board bookmark)
+  // A teacher page someone asked for before logging in (e.g. a #bord bookmark)
   const [afterLogin, setAfterLogin] = useState(null)
 
   // Always read the latest login state, even from an older copy of go()

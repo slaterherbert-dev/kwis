@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { compressImage } from './backgrounds'
 
 // ── Card colors (shared by every widget) ──
 export const TONES = {
@@ -316,6 +317,106 @@ function SoundWidget({ props, update }) {
   )
 }
 
+
+// ── IMAGE ──
+// Small images are kept as-is (so PNG transparency survives); big ones are
+// shrunk to save space. Either way the picture is stored inside the board.
+async function fileToImage(file) {
+  if (!file || !file.type.startsWith('image/')) throw new Error('That isn’t an image. Try a JPG, PNG, or GIF.')
+  if (file.size <= 350 * 1024) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader()
+      r.onload = () => resolve(r.result)
+      r.onerror = () => reject(new Error('Couldn’t read that image.'))
+      r.readAsDataURL(file)
+    })
+  }
+  return compressImage(file, 1400)
+}
+
+function ImageWidget({ props, update }) {
+  const [error, setError] = useState('')
+  const [over, setOver] = useState(false)
+  const fileInput = useRef(null)
+
+  const addFile = async file => {
+    setError('')
+    try { update({ src: await fileToImage(file) }) } catch (e) { setError(e.message) }
+  }
+
+  const onPaste = e => {
+    const item = [...(e.clipboardData?.items || [])].find(i => i.type.startsWith('image/'))
+    if (item) { e.preventDefault(); addFile(item.getAsFile()) }
+    else setError('Nothing to paste. Copy an image first (right-click an image → Copy image).')
+  }
+
+  const onDrop = e => {
+    e.preventDefault(); setOver(false)
+    const file = e.dataTransfer.files?.[0]
+    if (file) { addFile(file); return }
+    // An image dragged from another browser tab arrives as a web address
+    const url = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain')
+    if (/^https?:\/\//.test(url)) { setError(''); update({ src: url.trim() }) }
+    else setError('Couldn’t use that. Try saving the image and choosing the file.')
+  }
+
+  const dropProps = {
+    onDragOver: e => { e.preventDefault(); setOver(true) },
+    onDragLeave: () => setOver(false),
+    onDrop,
+  }
+
+  if (!props.src) {
+    return (
+      <div className={`w-image-empty ${over ? 'over' : ''}`} tabIndex={0} onPaste={onPaste} {...dropProps}
+        aria-label="Add an image: choose a file, drop one here, or click and paste">
+        <button className="w-btn w-btn-main" onClick={() => fileInput.current.click()}>Choose an image</button>
+        <p className="w-note">or drag one here, or click this box and press Ctrl+V to paste</p>
+        {error && <p className="w-note w-error">{error}</p>}
+        <input ref={fileInput} type="file" accept="image/*" hidden
+          onChange={e => { addFile(e.target.files?.[0]); e.target.value = '' }} />
+      </div>
+    )
+  }
+
+  return (
+    <div className="w-image" {...dropProps}>
+      <img src={props.src} alt={props.caption || ''} draggable={false}
+        style={{ objectFit: props.fit === 'fill' ? 'cover' : 'contain' }}
+        onError={() => setError('This image couldn’t load. Try replacing it.')} />
+      {props.showCaption && (
+        <Editable className="w-image-caption" value={props.caption} placeholder="Add a caption"
+          onChange={caption => update({ caption })} />
+      )}
+      {error && <p className="w-note w-error w-image-error">{error}</p>}
+    </div>
+  )
+}
+
+function ImageSettings({ props, update }) {
+  const fileInput = useRef(null)
+  const replace = async file => {
+    if (!file) return
+    try { update({ src: await fileToImage(file) }) } catch (e) { window.alert(e.message) }
+  }
+  return (
+    <>
+      <div className="ws-row">
+        <span>Fit</span>
+        <button className={`ws-chip ${props.fit !== 'fill' ? 'on' : ''}`} onClick={() => update({ fit: 'fit' })}>Whole image</button>
+        <button className={`ws-chip ${props.fit === 'fill' ? 'on' : ''}`} onClick={() => update({ fit: 'fill' })}>Fill box</button>
+      </div>
+      <div className="ws-row">
+        <span />
+        <button className={`ws-chip ${props.showCaption ? 'on' : ''}`} onClick={() => update({ showCaption: !props.showCaption })}>Caption</button>
+        {props.src && <button className="ws-chip" onClick={() => fileInput.current.click()}>Replace image</button>}
+        <input ref={fileInput} type="file" accept="image/*" hidden
+          onChange={e => { replace(e.target.files?.[0]); e.target.value = '' }} />
+      </div>
+    </>
+  )
+}
+
 // ── Registry: everything the toolbar can add ──
 export const WIDGETS = {
   text:    { label: 'Text',          icon: '📝', size: { w: 30, h: 28 }, tone: 'yellow', defaults: { title: '', body: '', size: 'M' }, Component: TextWidget, Settings: TextSettings },
@@ -323,5 +424,6 @@ export const WIDGETS = {
   clock:   { label: 'Clock',         icon: '🕒', size: { w: 22, h: 18 }, tone: 'white',  defaults: {}, Component: ClockWidget },
   picker:  { label: 'Name picker',   icon: '🎲', size: { w: 30, h: 38 }, tone: 'sky',    defaults: {}, Component: PickerWidget },
   traffic: { label: 'Traffic light', icon: '🚦', size: { w: 10, h: 34 }, tone: 'ink',    defaults: { active: null }, Component: TrafficWidget },
+  image:   { label: 'Image',         icon: '🖼️', size: { w: 30, h: 36 }, tone: 'white',  defaults: { src: '', fit: 'fit', caption: '', showCaption: false }, Component: ImageWidget, Settings: ImageSettings },
   sound:   { label: 'Sound meter',   icon: '🔊', size: { w: 26, h: 26 }, tone: 'white',  defaults: { limit: 70 }, Component: SoundWidget },
 }

@@ -220,7 +220,7 @@ export default function Board({ go }) {
         <button className="bt-show" onClick={() => setToolbarHidden(false)} aria-label="Show toolbar">▲</button>
       ) : (
         <div className="bt" onPointerDown={e => e.stopPropagation()}>
-          <button className="bt-btn" onClick={() => go('teacher-home')} title="Back to teacher home">
+          <button className="bt-btn" onClick={() => go('teacher-home')} title="Back to Kwis teacher home">
             <span className="bt-icon">🏠</span><span>Home</span>
           </button>
           <button className={`bt-btn ${panel === 'boards' ? 'on' : ''}`} onClick={() => setPanel(p => (p === 'boards' ? null : 'boards'))}>
@@ -234,7 +234,7 @@ export default function Board({ go }) {
           ))}
           <span className="bt-sep" />
           <button className={`bt-btn ${panel === 'background' ? 'on' : ''}`} onClick={() => setPanel(p => (p === 'background' ? null : 'background'))}>
-            <span className="bt-icon">🖼️</span><span>Background</span>
+            <span className="bt-icon">🌄</span><span>Background</span>
           </button>
           <button className="bt-btn" onClick={toggleFullscreen}>
             <span className="bt-icon">⛶</span><span>Full screen</span>
@@ -248,8 +248,8 @@ export default function Board({ go }) {
 
       {panel === 'boards' && (
         <div className="bp" onPointerDown={e => e.stopPropagation()}>
-          <h2 className="bp-title">Your boards</h2>
-          {local && <p className="bp-note">Boards are saving to this computer only. Run the setup step in Supabase to save them to Kwis.</p>}
+          <h2 className="bp-title">Your Bord boards</h2>
+          {local && <p className="bp-note">Bord is saving to this computer only. Run the setup step in Supabase to save your boards to Kwis.</p>}
           <ul className="bp-list">
             {boards.map(b => (
               <li key={b.id} className={b.id === currentId ? 'on' : ''}>
