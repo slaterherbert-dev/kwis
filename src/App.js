@@ -28,12 +28,16 @@ const HASH_TO_SCREEN = {
   board: 'board', // older #board bookmarks still open Bord
 }
 
+// "#bord/abc123" belongs to the bord screen; Bord reads the part after the slash
+const hashBase = () => window.location.hash.replace('#', '').split('/')[0]
+
 function screenFromHash() {
-  return HASH_TO_SCREEN[window.location.hash.replace('#', '')] || null
+  return HASH_TO_SCREEN[hashBase()] || null
 }
 
 function setHash(screen) {
   const hash = SCREEN_TO_HASH[screen]
+  if (hash && HASH_TO_SCREEN[hashBase()] === screen) return // already there; keep any #bord/<board>
   const url = hash ? `#${hash}` : window.location.pathname + window.location.search
   // replaceState (not a new history entry) so the browser Back button can't
   // pull a teacher out of a running game.
