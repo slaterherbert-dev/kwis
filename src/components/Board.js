@@ -1,16 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useAuth } from '../contexts/AuthContext'
-import { listBoards, createBoard, updateBoard, deleteBoard, storageMode } from './board/storage'
-import { BACKGROUNDS, bgStyle, compressImage } from './board/backgrounds'
-import { WIDGETS } from './board/widgets'
-import WidgetFrame from './board/WidgetFrame'
+import * as db from './board/storage'
+import BordHome from './board/BordHome'
+import BoardEditor, { starterBoard } from './board/BoardEditor'
 import './board/Board.css'
 
-const LAST_BOARD_KEY = 'kwis-last-board'
-
 // Lexend is designed for reading ease, which matters on a projector. It's
-// loaded on its own so that if a network blocks Google Fonts, the Board
-// still works with a fallback font.
+// loaded on its own so that if a network blocks Google Fonts, Bord still
+// works with a fallback font.
 function loadBoardFont() {
   if (document.getElementById('kwis-board-font')) return
   const link = document.createElement('link')
@@ -19,283 +16,234 @@ function loadBoardFont() {
   link.href = 'https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;700&display=swap'
   document.head.appendChild(link)
 }
-const newId = () => Math.random().toString(36).slice(2, 10)
 
-function makeWidget(type, place = {}, props = {}, tone) {
-  const def = WIDGETS[type]
-  return {
-    id: newId(), type, z: 1,
-    x: 50 - def.size.w / 2, y: 40 - def.size.h / 2, ...def.size, ...place,
-    tone: tone || def.tone,
-    props: { ...def.defaults, ...props },
-  }
-}
+// The address bar shows #bord on the deck list and #bord/<board id> on a
+// board, so a refresh mid-class keeps you on the same board.
+const boardIdFromHash = () => window.location.hash.split('/')[1] || null
+const setBordHash = id => window.history.replaceState(null, '', id ? `#bord/${id}` : '#bord')
 
-// A new board starts with the daily layout: agenda, learning target, reminder
-function starterBoard() {
-  return {
-    bg: BACKGROUNDS[0],
-    widgets: [
-      makeWidget('text', { x: 3, y: 4, w: 46, h: 34 }, { title: 'Agenda', body: '1. \n2. \n3. ' }, 'pink'),
-      makeWidget('text', { x: 3, y: 42, w: 46, h: 40 }, { title: 'Learning target', body: '' }, 'yellow'),
-      makeWidget('text', { x: 52, y: 4, w: 45, h: 78 }, { title: 'Reminder', body: '' }, 'red'),
-    ],
-  }
-}
+const byPosition = (a, b) => a.position - b.position
+const nextPosition = list => (list.length ? Math.max(...list.map(x => x.position)) + 1 : 0)
 
 export default function Board({ go }) {
   const { user } = useAuth()
+  const [decks, setDecks] = useState([])
   const [boards, setBoards] = useState([])
-  const [currentId, setCurrentId] = useState(null)
-  const [data, setData] = useState(null)
-  const [loadError, setLoadError] = useState('')
-  const [save, setSave] = useState('saved') // saved | saving | error
-  const [saveError, setSaveError] = useState('')
-  const [selected, setSelected] = useState(null)
-  const [panel, setPanel] = useState(null) // null | 'boards' | 'background'
-  const [toolbarHidden, setToolbarHidden] = useState(false)
-  const [bgError, setBgError] = useState('')
-  const boardRef = useRef(null)
-  const dirty = useRef(false)
-  const latest = useRef({ id: null, data: null })
-  latest.current = { id: currentId, data }
+  const [loaded, setLoaded] = useState(false)
+  const [fatal, setFatal] = useState('')
+  const [openId, setOpenId] = useState(null)
+  const [save, setSave] = useState({ state: 'saved', error: '' })
+  const [notice, setNotice] = useState('')
+
+  const pending = useRef(new Set()) // board ids with unsaved changes
+  const boardsRef = useRef(boards)
+  boardsRef.current = boards
 
   useEffect(loadBoardFont, [])
 
-  // ── Load boards (create the first one if there are none) ──
+  // ── Load (and set up a first deck if there's nothing yet) ──
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      const { boards: list, error } = await listBoards()
+      const res = await db.loadEverything()
       if (cancelled) return
-      if (error) { setLoadError(error); return }
-      let all = list
-      if (!all.length) {
-        const { board, error: createError } = await createBoard(user.id, 'My board', starterBoard())
-        if (createError || !board) { setLoadError(createError || 'Couldn’t create your first board.'); return }
-        all = [board]
+      if (res.error) { setFatal(res.error); return }
+      let { decks: ds, boards: bs } = res
+
+      if (!ds.length) {
+        const { deck, error } = await db.createDeck(user.id, bs.length ? 'My boards' : 'My first deck', 0)
+        if (error || !deck) { setFatal(error || 'Couldn’t create your first deck.'); return }
+        ds = [deck]
       }
-      let last = null
-      try { last = localStorage.getItem(LAST_BOARD_KEY) } catch {}
-      const open = all.find(b => b.id === last) || all[0]
-      setBoards(all)
-      setCurrentId(open.id)
-      setData(open.data)
+      // Any board without a deck goes into the first deck
+      const loose = bs.filter(b => !b.deck_id || !ds.some(d => d.id === b.deck_id))
+      if (loose.length) {
+        await Promise.all(loose.map(b => db.updateBoard(b.id, { deck_id: ds[0].id })))
+        bs = bs.map(b => (loose.includes(b) ? { ...b, deck_id: ds[0].id } : b))
+      }
+      // Boards that share a position (like older boards, which all start at 0)
+      // get numbered in their current order so moving and duplicating work
+      const fixes = []
+      ds.forEach(d => {
+        const inDeck = bs.filter(b => b.deck_id === d.id) // already sorted by position, then age
+        if (new Set(inDeck.map(b => b.position)).size === inDeck.length) return
+        inDeck.forEach((b, i) => { if (b.position !== i) fixes.push({ id: b.id, position: i }) })
+      })
+      if (fixes.length) {
+        await Promise.all(fixes.map(f => db.updateBoard(f.id, { position: f.position })))
+        bs = bs.map(b => { const f = fixes.find(x => x.id === b.id); return f ? { ...b, position: f.position } : b })
+      }
+      if (!bs.length) {
+        const { board } = await db.createBoard(user.id, { name: 'Board 1', data: starterBoard(), deck_id: ds[0].id, position: 0 })
+        if (board) bs = [board]
+      }
+      if (cancelled) return
+      setDecks(ds)
+      setBoards(bs)
+      const fromHash = boardIdFromHash()
+      setOpenId(bs.some(b => b.id === fromHash) ? fromHash : null)
+      setLoaded(true)
     })()
     return () => { cancelled = true }
   }, [user.id])
 
-  // ── Autosave shortly after each change ──
-  const change = updater => { dirty.current = true; setData(updater) }
-
-  useEffect(() => {
-    if (!dirty.current || !currentId) return
-    setSave('saving')
-    const t = setTimeout(async () => {
-      dirty.current = false
-      const { error } = await updateBoard(currentId, { data })
-      setBoards(bs => bs.map(b => (b.id === currentId ? { ...b, data } : b)))
-      if (error) { setSave('error'); setSaveError(error) } else { setSave('saved'); setSaveError('') }
-    }, 700)
-    return () => clearTimeout(t)
-  }, [data, currentId])
-
-  // Save anything pending when leaving the Board
-  useEffect(() => () => {
-    if (dirty.current && latest.current.id) updateBoard(latest.current.id, { data: latest.current.data })
+  // ── Autosave: changed boards are saved shortly after the last edit ──
+  const flush = useCallback(async () => {
+    const ids = [...pending.current]
+    pending.current.clear()
+    if (!ids.length) return
+    const results = await Promise.all(ids.map(id => {
+      const b = boardsRef.current.find(x => x.id === id)
+      return b ? db.updateBoard(id, { data: b.data }) : { error: null }
+    }))
+    const failed = results.find(r => r.error)
+    setSave(failed ? { state: 'error', error: failed.error } : { state: 'saved', error: '' })
   }, [])
 
-  // ── Widget actions ──
-  const updateWidget = (id, patch) =>
-    change(d => ({ ...d, widgets: d.widgets.map(w => (w.id === id ? { ...w, ...patch } : w)) }))
-  const updateProps = (id, patch) =>
-    change(d => ({ ...d, widgets: d.widgets.map(w => (w.id === id ? { ...w, props: { ...w.props, ...patch } } : w)) }))
-  const removeWidget = id => { change(d => ({ ...d, widgets: d.widgets.filter(w => w.id !== id) })); setSelected(null) }
+  useEffect(() => {
+    if (!pending.current.size) return
+    setSave(s => ({ ...s, state: 'saving' }))
+    const t = setTimeout(flush, 700)
+    return () => clearTimeout(t)
+  }, [boards, flush])
 
-  const bringToFront = id => {
-    setSelected(id)
-    const top = Math.max(0, ...data.widgets.map(w => w.z))
-    const w = data.widgets.find(x => x.id === id)
-    if (w && w.z < top) updateWidget(id, { z: top + 1 })
+  useEffect(() => () => { flush() }, [flush]) // save anything left when leaving Bord
+
+  const changeBoardData = (id, updater) => {
+    pending.current.add(id)
+    setBoards(bs => bs.map(b => (b.id === id ? { ...b, data: updater(b.data) } : b)))
   }
 
-  const addWidget = type => {
-    const top = Math.max(0, ...data.widgets.map(w => w.z))
-    const nudge = (data.widgets.length % 5) * 3
-    const w = makeWidget(type)
-    w.x = Math.min(w.x + nudge, 100 - w.w)
-    w.y = Math.min(w.y + nudge, 100 - w.h)
-    w.z = top + 1
-    change(d => ({ ...d, widgets: [...d.widgets, w] }))
-    setSelected(w.id)
-  }
+  const report = error => { if (error) setNotice(error) }
 
-  // ── Board actions ──
-  const openBoard = b => {
-    if (dirty.current && currentId) updateBoard(currentId, { data })
-    dirty.current = false
-    setCurrentId(b.id); setData(b.data); setSelected(null); setPanel(null)
-    try { localStorage.setItem(LAST_BOARD_KEY, b.id) } catch {}
-  }
+  // ── Navigation ──
+  const openBoard = board => { flush(); setOpenId(board.id); setBordHash(board.id); setNotice('') }
+  const closeBoard = () => { flush(); setOpenId(null); setBordHash(null) }
 
-  const newBoard = async () => {
-    const { board, error } = await createBoard(user.id, `Board ${boards.length + 1}`, starterBoard())
-    if (error || !board) { setSave('error'); setSaveError(error || 'Couldn’t create a board.'); return }
-    setBoards(bs => [...bs, board])
-    openBoard(board)
-  }
+  // ── Deck actions ──
+  const actions = {
+    openBoard,
 
-  const renameBoard = async (id, name) => {
-    setBoards(bs => bs.map(b => (b.id === id ? { ...b, name } : b)))
-    await updateBoard(id, { name: name.trim() || 'Untitled board' })
-  }
+    newDeck: async () => {
+      const { deck, error } = await db.createDeck(user.id, `Deck ${decks.length + 1}`, nextPosition(decks))
+      if (error || !deck) return report(error)
+      setDecks(ds => [...ds, deck])
+      const { board } = await db.createBoard(user.id, { name: 'Board 1', data: starterBoard(), deck_id: deck.id, position: 0 })
+      if (board) setBoards(bs => [...bs, board])
+    },
 
-  const removeBoard = async b => {
-    if (boards.length === 1) return
-    if (!window.confirm(`Delete “${b.name}”? This can’t be undone.`)) return
-    const { error } = await deleteBoard(b.id)
-    if (error) { setSave('error'); setSaveError(error); return }
-    const rest = boards.filter(x => x.id !== b.id)
-    setBoards(rest)
-    if (b.id === currentId) openBoard(rest[0])
-  }
+    renameDeck: async (deck, name) => {
+      setDecks(ds => ds.map(d => (d.id === deck.id ? { ...d, name } : d)))
+      report((await db.updateDeck(deck.id, { name })).error)
+    },
 
-  const setBackground = bg => change(d => ({ ...d, bg }))
+    deleteDeck: async (deck, count) => {
+      const what = count ? ` and its ${count} ${count === 1 ? 'board' : 'boards'}` : ''
+      if (!window.confirm(`Delete the deck “${deck.name}”${what}? This can’t be undone.`)) return
+      const { error } = await db.deleteDeck(deck.id)
+      if (error) return report(error)
+      setDecks(ds => ds.filter(d => d.id !== deck.id))
+      setBoards(bs => bs.filter(b => b.deck_id !== deck.id))
+    },
 
-  const uploadBackground = async e => {
-    const file = e.target.files?.[0]
-    e.target.value = ''
-    if (!file) return
-    setBgError('')
-    try { setBackground({ type: 'image', value: await compressImage(file) }) }
-    catch (err) { setBgError(err.message) }
-  }
+    newBoard: async deck => {
+      const inDeck = boards.filter(b => b.deck_id === deck.id)
+      const last = [...inDeck].sort(byPosition).pop()
+      const { board, error } = await db.createBoard(user.id, {
+        name: `Board ${inDeck.length + 1}`,
+        data: starterBoard(last?.data?.bg), // new boards keep the deck's latest background
+        deck_id: deck.id, position: nextPosition(inDeck),
+      })
+      if (error || !board) return report(error)
+      setBoards(bs => [...bs, board])
+    },
 
-  const toggleFullscreen = () => {
-    if (document.fullscreenElement) document.exitFullscreen()
-    else document.documentElement.requestFullscreen?.()
+    renameBoard: async (board, name) => {
+      setBoards(bs => bs.map(b => (b.id === board.id ? { ...b, name } : b)))
+      report((await db.updateBoard(board.id, { name })).error)
+    },
+
+    duplicateBoard: async board => {
+      // Place the copy right after the original
+      const inDeck = boards.filter(b => b.deck_id === board.deck_id).sort(byPosition)
+      const after = inDeck[inDeck.findIndex(b => b.id === board.id) + 1]
+      const position = after ? (board.position + after.position) / 2 : board.position + 1
+      const { board: copy, error } = await db.createBoard(user.id, {
+        name: `${board.name} (copy)`, data: JSON.parse(JSON.stringify(board.data)), deck_id: board.deck_id, position,
+      })
+      if (error || !copy) return report(error)
+      setBoards(bs => [...bs, copy])
+    },
+
+    moveBoard: async (board, dir) => {
+      const inDeck = boards.filter(b => b.deck_id === board.deck_id).sort(byPosition)
+      const i = inDeck.findIndex(b => b.id === board.id)
+      const other = inDeck[i + dir]
+      if (!other) return
+      let [a, b] = [other.position, board.position]
+      if (a === b) a = b + dir // positions can tie; break the tie
+      setBoards(bs => bs.map(x => (x.id === board.id ? { ...x, position: a } : x.id === other.id ? { ...x, position: b } : x)))
+      const results = await Promise.all([db.updateBoard(board.id, { position: a }), db.updateBoard(other.id, { position: b })])
+      report(results.find(r => r.error)?.error)
+    },
+
+    moveToDeck: async (board, deckId) => {
+      if (deckId === board.deck_id) return
+      const position = nextPosition(boards.filter(b => b.deck_id === deckId))
+      setBoards(bs => bs.map(b => (b.id === board.id ? { ...b, deck_id: deckId, position } : b)))
+      report((await db.updateBoard(board.id, { deck_id: deckId, position })).error)
+    },
+
+    deleteBoard: async board => {
+      if (!window.confirm(`Delete “${board.name}”? This can’t be undone.`)) return
+      const { error } = await db.deleteBoard(board.id)
+      if (error) return report(error)
+      setBoards(bs => bs.filter(b => b.id !== board.id))
+    },
   }
 
   // ── Render ──
-  if (loadError) {
+  if (fatal) {
     return (
       <div className="screen centered">
-        <div className="card" style={{ maxWidth: 420, textAlign: 'center' }}>
-          <p style={{ marginBottom: '1rem' }}>{loadError}</p>
-          <button className="btn" onClick={() => go('teacher-home')}>← Home</button>
+        <div className="card" style={{ maxWidth: 460, textAlign: 'center' }}>
+          <p style={{ marginBottom: '1rem', lineHeight: 1.5 }}>{fatal}</p>
+          <button className="btn" onClick={() => go('teacher-home')}>← Kwis home</button>
         </div>
       </div>
     )
   }
-  if (!data) {
+  if (!loaded) {
     return <div className="screen centered"><div className="dot-row"><div className="dot" /><div className="dot" /><div className="dot" /></div></div>
   }
 
-  const current = boards.find(b => b.id === currentId)
-  const local = storageMode() === 'local'
-  const saveLabel = save === 'saving' ? 'Saving…' : save === 'error' ? 'Not saved' : local ? 'Saved on this computer' : 'Saved'
+  const sortedDecks = [...decks].sort(byPosition)
+  const sortedBoards = [...boards].sort(byPosition)
+  const open = boards.find(b => b.id === openId)
+
+  if (open) {
+    const deck = decks.find(d => d.id === open.deck_id)
+    const inDeck = sortedBoards.filter(b => b.deck_id === open.deck_id)
+    const i = inDeck.findIndex(b => b.id === open.id)
+    const saveLabel = save.state === 'saving' ? 'Saving…' : save.state === 'error' ? 'Not saved' : 'Saved'
+    return (
+      <BoardEditor
+        board={open}
+        deckName={deck?.name || ''}
+        position={i + 1}
+        total={inDeck.length}
+        onPrev={() => inDeck[i - 1] && openBoard(inDeck[i - 1])}
+        onNext={() => inDeck[i + 1] && openBoard(inDeck[i + 1])}
+        onExit={closeBoard}
+        onData={updater => changeBoardData(open.id, updater)}
+        saveLabel={saveLabel}
+        saveError={save.error}
+      />
+    )
+  }
 
   return (
-    <div className="board-root">
-      <div className="board" ref={boardRef} style={bgStyle(data.bg)}
-        onPointerDown={() => { setSelected(null); setPanel(null) }}>
-        {data.widgets.map(w => {
-          const def = WIDGETS[w.type]
-          if (!def) return null
-          const { Component, Settings } = def
-          return (
-            <WidgetFrame key={w.id} widget={w} boardRef={boardRef}
-              selected={selected === w.id}
-              onSelect={() => bringToFront(w.id)}
-              onChange={patch => updateWidget(w.id, patch)}
-              onDelete={() => removeWidget(w.id)}
-              settings={Settings && <Settings props={w.props} update={p => updateProps(w.id, p)} />}>
-              <Component props={w.props} update={p => updateProps(w.id, p)} />
-            </WidgetFrame>
-          )
-        })}
-      </div>
-
-      {toolbarHidden ? (
-        <button className="bt-show" onClick={() => setToolbarHidden(false)} aria-label="Show toolbar">▲</button>
-      ) : (
-        <div className="bt" onPointerDown={e => e.stopPropagation()}>
-          <button className="bt-btn" onClick={() => go('teacher-home')} title="Back to Kwis teacher home">
-            <span className="bt-icon">🏠</span><span>Home</span>
-          </button>
-          <button className={`bt-btn ${panel === 'boards' ? 'on' : ''}`} onClick={() => setPanel(p => (p === 'boards' ? null : 'boards'))}>
-            <span className="bt-icon">🗂️</span><span className="bt-name">{current?.name || 'Boards'}</span>
-          </button>
-          <span className="bt-sep" />
-          {Object.entries(WIDGETS).map(([type, def]) => (
-            <button key={type} className="bt-btn" onClick={() => addWidget(type)} title={`Add ${def.label.toLowerCase()}`}>
-              <span className="bt-icon">{def.icon}</span><span>{def.label}</span>
-            </button>
-          ))}
-          <span className="bt-sep" />
-          <button className={`bt-btn ${panel === 'background' ? 'on' : ''}`} onClick={() => setPanel(p => (p === 'background' ? null : 'background'))}>
-            <span className="bt-icon">🌄</span><span>Background</span>
-          </button>
-          <button className="bt-btn" onClick={toggleFullscreen}>
-            <span className="bt-icon">⛶</span><span>Full screen</span>
-          </button>
-          <button className="bt-btn" onClick={() => { setToolbarHidden(true); setPanel(null) }} title="Hide toolbar">
-            <span className="bt-icon">▼</span><span>Hide</span>
-          </button>
-          <span className={`bt-save bt-save-${save}`} title={saveError || ''}>{saveLabel}</span>
-        </div>
-      )}
-
-      {panel === 'boards' && (
-        <div className="bp" onPointerDown={e => e.stopPropagation()}>
-          <h2 className="bp-title">Your Bord boards</h2>
-          {local && <p className="bp-note">Bord is saving to this computer only. Run the setup step in Supabase to save your boards to Kwis.</p>}
-          <ul className="bp-list">
-            {boards.map(b => (
-              <li key={b.id} className={b.id === currentId ? 'on' : ''}>
-                {b.id === currentId ? (
-                  <input className="bp-rename" value={b.name} aria-label="Board name"
-                    onChange={e => setBoards(bs => bs.map(x => (x.id === b.id ? { ...x, name: e.target.value } : x)))}
-                    onBlur={e => renameBoard(b.id, e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()} />
-                ) : (
-                  <button className="bp-open" onClick={() => openBoard(b)}>{b.name}</button>
-                )}
-                {boards.length > 1 && (
-                  <button className="bp-delete" onClick={() => removeBoard(b)} aria-label={`Delete ${b.name}`} title="Delete board">🗑</button>
-                )}
-              </li>
-            ))}
-          </ul>
-          <button className="btn btn-primary btn-full" onClick={newBoard}>+ New board</button>
-        </div>
-      )}
-
-      {panel === 'background' && (
-        <div className="bp bp-bg" onPointerDown={e => e.stopPropagation()}>
-          <h2 className="bp-title">Background</h2>
-          <div className="bp-swatches">
-            {BACKGROUNDS.map(bg => (
-              <button key={bg.label} className={`bp-swatch ${data.bg?.value === bg.value ? 'on' : ''}`}
-                style={{ background: bg.value }} onClick={() => setBackground(bg)}>
-                <span>{bg.label}</span>
-              </button>
-            ))}
-          </div>
-          <div className="bp-row">
-            <label className="btn bp-upload">
-              Upload a photo
-              <input type="file" accept="image/*" onChange={uploadBackground} hidden />
-            </label>
-            <label className="bp-color">
-              Any color
-              <input type="color" value={data.bg?.type === 'color' ? data.bg.value : '#f6efe2'}
-                onChange={e => setBackground({ type: 'color', value: e.target.value })} />
-            </label>
-          </div>
-          {bgError && <p className="bp-error">{bgError}</p>}
-        </div>
-      )}
-    </div>
+    <BordHome decks={sortedDecks} boards={sortedBoards} actions={actions}
+      onKwisHome={() => go('teacher-home')} notice={notice} />
   )
 }

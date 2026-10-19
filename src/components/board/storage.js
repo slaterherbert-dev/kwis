@@ -1,54 +1,58 @@
 import { supabase } from '../../supabase'
 
-// Boards live in the Supabase "boards" table. Until that table exists,
-// they're kept in this browser instead so the Board still works.
-const LOCAL_KEY = 'kwis-boards'
-let mode = 'cloud'
+// Bord data lives in two Supabase tables: board_decks and boards.
+// Each board belongs to a deck and has a position (its order in the deck).
 
-const isMissingTable = (error) =>
-  error && (error.code === '42P01' || error.code === 'PGRST205' ||
-    /does not exist|could not find the table/i.test(error.message || ''))
+const SETUP_MESSAGE = 'Bord needs a quick database update. Run decks-setup.sql in Supabase (SQL Editor → New query → Run), then refresh this page.'
 
-function readLocal() {
-  try { return JSON.parse(localStorage.getItem(LOCAL_KEY)) || [] } catch { return [] }
-}
-function writeLocal(boards) {
-  try { localStorage.setItem(LOCAL_KEY, JSON.stringify(boards)); return null }
-  catch { return 'This computer is out of space for boards. Try a smaller background image.' }
-}
-const newId = () => (window.crypto?.randomUUID ? window.crypto.randomUUID() : String(Date.now() + Math.random()))
+const needsSetup = error =>
+  error && (['42P01', '42703', 'PGRST204', 'PGRST205'].includes(error.code) ||
+    /does not exist|could not find/i.test(error.message || ''))
 
-export function storageMode() { return mode }
+const friendly = error => (needsSetup(error) ? SETUP_MESSAGE : error?.message || 'Something went wrong. Check your connection and try again.')
 
-export async function listBoards() {
-  const { data, error } = await supabase.from('boards').select('id, name, data').order('created_at')
-  if (!error) { mode = 'cloud'; return { boards: data || [] } }
-  if (isMissingTable(error)) { mode = 'local'; return { boards: readLocal() } }
-  return { boards: [], error: 'Couldn’t load your boards. Check your connection and refresh.' }
+const BOARD_FIELDS = 'id, name, data, deck_id, position'
+const DECK_FIELDS = 'id, name, position'
+
+export async function loadEverything() {
+  const [decks, boards] = await Promise.all([
+    supabase.from('board_decks').select(DECK_FIELDS).order('position').order('created_at'),
+    supabase.from('boards').select(BOARD_FIELDS).order('position').order('created_at'),
+  ])
+  const error = decks.error || boards.error
+  if (error) return { error: friendly(error), needsSetup: needsSetup(error) }
+  return { decks: decks.data || [], boards: boards.data || [] }
 }
 
-export async function createBoard(teacherId, name, data) {
-  if (mode === 'local') {
-    const board = { id: newId(), name, data }
-    const error = writeLocal([...readLocal(), board])
-    return { board, error }
-  }
-  const { data: rows, error } = await supabase.from('boards')
-    .insert([{ teacher_id: teacherId, name, data }]).select('id, name, data')
-  return { board: rows?.[0], error: error?.message }
+export async function createDeck(teacherId, name, position) {
+  const { data, error } = await supabase.from('board_decks')
+    .insert([{ teacher_id: teacherId, name, position }]).select(DECK_FIELDS)
+  return { deck: data?.[0], error: error && friendly(error) }
+}
+
+export async function updateDeck(id, patch) {
+  const { error } = await supabase.from('board_decks').update(patch).eq('id', id)
+  return { error: error && friendly(error) }
+}
+
+export async function deleteDeck(id) {
+  const { error } = await supabase.from('board_decks').delete().eq('id', id)
+  return { error: error && friendly(error) }
+}
+
+export async function createBoard(teacherId, fields) {
+  const { data, error } = await supabase.from('boards')
+    .insert([{ teacher_id: teacherId, ...fields }]).select(BOARD_FIELDS)
+  return { board: data?.[0], error: error && friendly(error) }
 }
 
 export async function updateBoard(id, patch) {
-  if (mode === 'local') {
-    return { error: writeLocal(readLocal().map(b => (b.id === id ? { ...b, ...patch } : b))) }
-  }
   const { error } = await supabase.from('boards')
     .update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id)
-  return { error: error?.message }
+  return { error: error && friendly(error) }
 }
 
 export async function deleteBoard(id) {
-  if (mode === 'local') return { error: writeLocal(readLocal().filter(b => b.id !== id)) }
   const { error } = await supabase.from('boards').delete().eq('id', id)
-  return { error: error?.message }
+  return { error: error && friendly(error) }
 }

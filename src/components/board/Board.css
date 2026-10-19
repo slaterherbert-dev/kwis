@@ -214,3 +214,76 @@
   .w-timer.done .w-timer-digits { animation: none; }
   .bw-chrome, .w-light, .w-meter-fill { transition: none; }
 }
+
+/* ── TOOLBAR: board-to-board arrows ── */
+.bt-nav { display: flex; align-items: center; gap: 4px; padding: 0 4px; color: #d8d8ee; font-size: 11.5px; }
+.bt-nav button {
+  width: 30px; height: 40px; border: none; border-radius: 8px; background: transparent;
+  color: #fff; font-size: 22px; line-height: 1; cursor: pointer;
+}
+.bt-nav button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.1); }
+.bt-nav button:disabled { opacity: 0.25; cursor: default; }
+.bt-nav > span { display: flex; flex-direction: column; align-items: center; min-width: 70px; max-width: 130px; }
+.bt-nav-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #fff; }
+.bt-nav-count { color: #8a8ab0; font-variant-numeric: tabular-nums; }
+
+/* ── BORD HOME ── */
+.bh-wrap { width: 100%; max-width: 1240px; margin: 0 auto; }
+.bh-header { display: flex; align-items: center; gap: 1.25rem; margin-bottom: 2rem; flex-wrap: wrap; }
+.bh-title { font-size: 2.2rem; font-weight: 800; letter-spacing: -1px; flex: 1; }
+.bh-notice { background: rgba(255, 71, 87, 0.12); border: 1px solid rgba(255, 71, 87, 0.3); color: var(--red); border-radius: var(--radius); padding: 0.65rem 1rem; margin-bottom: 1.25rem; font-size: 0.9rem; }
+.bh-empty { text-align: center; padding: 3rem 2rem; display: flex; flex-direction: column; align-items: center; gap: 1.25rem; color: var(--muted); }
+
+.bh-deck { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.1rem 1.25rem 1.4rem; margin-bottom: 1.25rem; }
+.bh-deck-head { display: flex; align-items: center; gap: 0.9rem; margin-bottom: 1rem; flex-wrap: wrap; }
+.bh-deck-name {
+  font-family: 'Syne', sans-serif; font-size: 1.3rem; font-weight: 700;
+  width: auto; flex: 0 1 26ch; min-width: 8ch; padding: 0.2rem 0.5rem; margin-left: -0.5rem;
+  background: transparent; border: 1px solid transparent; border-radius: 8px; color: var(--text);
+}
+.bh-deck-name:hover { border-color: var(--border2); }
+.bh-deck-name:focus { border-color: var(--accent); background: var(--surface2); }
+.bh-count { color: var(--muted); font-size: 0.85rem; flex: 1; }
+.bh-deck-delete { background: none; border: none; color: var(--muted); font-family: inherit; font-size: 0.85rem; cursor: pointer; padding: 0.3rem 0.5rem; border-radius: 6px; }
+.bh-deck-delete:hover { color: var(--red); background: rgba(255, 71, 87, 0.1); }
+
+.bh-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1.1rem 1rem; }
+.bh-card { position: relative; min-width: 0; }
+.bh-thumb { display: block; width: 100%; padding: 0; border: 2px solid transparent; border-radius: 12px; cursor: pointer; background: none; overflow: hidden; }
+.bh-thumb:hover { border-color: var(--accent); }
+.bh-thumb:focus-visible, .bh-add:focus-visible, .bh-more:focus-visible, .bh-name:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.bh-label { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.45rem; }
+.bh-num { color: var(--muted); font-size: 0.85rem; font-variant-numeric: tabular-nums; min-width: 1.2em; }
+.bh-name { flex: 1; min-width: 0; text-align: left; background: none; border: none; color: var(--text); font-family: inherit; font-size: 0.92rem; cursor: text; padding: 0.15rem 0.25rem; border-radius: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bh-name:hover { background: var(--surface2); }
+.bh-rename { flex: 1; min-width: 0; padding: 0.2rem 0.4rem; font-size: 0.92rem; }
+.bh-more { background: none; border: none; color: var(--muted); font-size: 1.2rem; line-height: 1; cursor: pointer; padding: 0.15rem 0.45rem; border-radius: 6px; }
+.bh-more:hover { background: var(--surface2); color: var(--text); }
+
+.bh-scrim { position: fixed; inset: 0; z-index: 20; }
+.bh-menu {
+  position: absolute; right: 0; top: calc(100% - 0.2rem); z-index: 21; min-width: 190px;
+  background: var(--surface2); border: 1px solid var(--border2); border-radius: 12px; padding: 0.35rem;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4); display: flex; flex-direction: column;
+}
+.bh-menu button { text-align: left; background: none; border: none; color: var(--text); font-family: inherit; font-size: 0.9rem; padding: 0.5rem 0.7rem; border-radius: 8px; cursor: pointer; }
+.bh-menu button:hover:not(:disabled) { background: var(--surface3); }
+.bh-menu button:disabled { opacity: 0.35; cursor: default; }
+.bh-menu .bh-danger { color: var(--red); }
+.bh-menu-select { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.8rem; color: var(--muted); padding: 0.45rem 0.7rem; }
+.bh-menu-select select { font-size: 0.88rem; padding: 0.35rem 0.5rem; }
+
+.bh-add {
+  aspect-ratio: 16 / 9; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.15rem;
+  border: 2px dashed var(--border2); border-radius: 12px; background: transparent; color: var(--muted);
+  font-family: inherit; font-size: 0.85rem; cursor: pointer;
+}
+.bh-add span { font-size: 1.8rem; line-height: 1; color: var(--accent); }
+.bh-add:hover { border-color: var(--accent); color: var(--text); }
+
+/* Thumbnails: a tiny board. Same size-container trick as the real one. */
+.thumb { position: relative; text-align: left; aspect-ratio: 16 / 9; container-type: size; overflow: hidden; border-radius: 10px; font-family: 'Lexend', 'DM Sans', system-ui, sans-serif; pointer-events: none; }
+.thumb-w { position: absolute; border-radius: 1cqw; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.thumb-w .w-text { align-self: stretch; width: 100%; overflow: hidden; }
+.thumb-w img { width: 100%; height: 100%; }
+.thumb-icon { font-size: min(40cqh, 4cqw); opacity: 0.85; }
