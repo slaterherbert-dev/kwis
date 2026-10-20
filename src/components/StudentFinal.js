@@ -5,15 +5,18 @@ export default function StudentFinal({ go, gameSession, player }) {
   const [rank, setRank] = useState(null)
   const [total, setTotal] = useState(null)
   const [finalScore, setFinalScore] = useState(player?.score || 0)
+  const [comebacks, setComebacks] = useState(0)
 
   useEffect(() => {
     async function fetchFinal() {
-      const { data } = await supabase.from('players').select('id, score').eq('session_id', gameSession.id).order('score', { ascending: false })
+      const isCC = gameSession?.game_mode === 'comeback_court'
+      const { data } = await supabase.from('players').select(isCC ? 'id, score, cc_comebacks' : 'id, score').eq('session_id', gameSession.id).order('score', { ascending: false })
       if (!data) return
       setTotal(data.length)
       const myIdx = data.findIndex(p => p.id === player.id)
       setRank(myIdx + 1)
       setFinalScore(data[myIdx]?.score || 0)
+      if (isCC) setComebacks(data[myIdx]?.cc_comebacks || 0)
     }
     fetchFinal()
   }, [])
@@ -41,6 +44,11 @@ export default function StudentFinal({ go, gameSession, player }) {
         </div>
       </div>
 
+      {comebacks > 0 && (
+        <p style={{ fontWeight: 700, marginBottom: '1rem' }}>
+          You climbed out of the Comeback Court {comebacks} time{comebacks !== 1 ? 's' : ''}. That’s resilience.
+        </p>
+      )}
       <p style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>Nice work reviewing today's material!</p>
     </div>
   )

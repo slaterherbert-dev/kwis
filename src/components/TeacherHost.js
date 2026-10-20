@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
 import OneVsHundredHost from './OneVsHundredHost'
+import ComebackCourtHost from './comeback/ComebackCourtHost'
+import { CrownIcon } from './comeback/CourtArt'
 import QuestionImage from './QuestionImage'
 import { secondsFor, preloadImage } from '../lib/questionImages'
 
@@ -43,7 +45,7 @@ function formatTime(seconds) {
 }
 
 export default function TeacherHost({ go, gameSession, setGameSession }) {
-  const [phase, setPhase] = useState('pick') // pick | lobby | countdown | question | revealed | gq-live | ovh | final
+  const [phase, setPhase] = useState('pick') // pick | lobby | countdown | question | revealed | gq-live | ovh | cc | final
   const [sets, setSets] = useState([])
   const [selectedSet, setSelectedSet] = useState(null)
   const [gameMode, setGameMode] = useState('classic') // classic | gold_quest | one_vs_100
@@ -106,7 +108,7 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
     if (!qs || qs.length === 0) { alert('This question set has no questions. Add some in Admin first.'); return }
     setQuestions(qs)
     questionsRef.current = qs
-    if (gameMode === 'classic' || gameMode === 'one_vs_100') preloadImage(qs[0].image_url)
+    if (gameMode !== 'gold_quest') preloadImage(qs[0].image_url)
     const pin = generatePin()
     const { data } = await supabase.from('game_sessions').insert([{
       pin,
@@ -123,6 +125,13 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
   }
 
   async function startGame() {
+    if (gameMode === 'comeback_court') {
+      // Comeback Court runs in its own component (comeback/ComebackCourtHost.js)
+      await fetchPlayers(session.id)
+      await fetchAnswers(session.id)
+      setPhase('cc')
+      return
+    }
     if (gameMode === 'one_vs_100') {
       // 1 vs. 100 runs in its own component (OneVsHundredHost.js)
       await supabase.from('game_sessions').update({ phase: 'ovh-pick' }).eq('id', session.id)
@@ -328,6 +337,7 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
   const allFinished = players.length > 0 && players.every(p => playerProgress(p.id) >= totalQuestions)
   const isGQ = gameMode === 'gold_quest'
   const isOVH = gameMode === 'one_vs_100'
+  const isCC = gameMode === 'comeback_court'
   const fmtScore = (n) => isOVH ? `$${(n || 0).toLocaleString()}` : isGQ ? `🪙 ${(n || 0).toLocaleString()}` : `${(n || 0).toLocaleString()} pts`
 
   // GQ timer display helpers
@@ -352,9 +362,9 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
         <p style={{ color: 'var(--muted)', marginBottom: '1.5rem', fontSize: '0.9rem' }}>Pick a question set and game mode</p>
 
         {/* Mode picker */}
-        <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.75rem' }}>
+        <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.75rem', flexWrap: 'wrap' }}>
           <div className="card-sm" style={{
-            flex: 1, cursor: 'pointer', textAlign: 'center', padding: '1rem 0.75rem',
+            flex: 1, minWidth: 150, cursor: 'pointer', textAlign: 'center', padding: '1rem 0.75rem',
             border: gameMode === 'classic' ? '2px solid var(--accent)' : '',
             background: gameMode === 'classic' ? 'rgba(108,99,255,0.08)' : '',
             transition: 'all 0.2s'
@@ -364,7 +374,7 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
             <p style={{ fontSize: '0.75rem', color: 'var(--muted)', lineHeight: 1.4 }}>Teacher-paced with timer and live reveal</p>
           </div>
           <div className="card-sm" style={{
-            flex: 1, cursor: 'pointer', textAlign: 'center', padding: '1rem 0.75rem',
+            flex: 1, minWidth: 150, cursor: 'pointer', textAlign: 'center', padding: '1rem 0.75rem',
             border: gameMode === 'gold_quest' ? '2px solid var(--yellow, #ffaa32)' : '',
             background: gameMode === 'gold_quest' ? 'rgba(255,170,50,0.08)' : '',
             transition: 'all 0.2s'
@@ -374,7 +384,7 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
             <p style={{ fontSize: '0.75rem', color: 'var(--muted)', lineHeight: 1.4 }}>Self-paced with treasure chests and steals</p>
           </div>
           <div className="card-sm" style={{
-            flex: 1, cursor: 'pointer', textAlign: 'center', padding: '1rem 0.75rem',
+            flex: 1, minWidth: 150, cursor: 'pointer', textAlign: 'center', padding: '1rem 0.75rem',
             border: gameMode === 'one_vs_100' ? '2px solid var(--red)' : '',
             background: gameMode === 'one_vs_100' ? 'rgba(255,71,87,0.08)' : '',
             transition: 'all 0.2s'
@@ -382,6 +392,16 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
             <div style={{ fontSize: '1.5rem', marginBottom: '0.35rem' }}>🔥</div>
             <p style={{ fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.2rem' }}>1 vs. 100</p>
             <p style={{ fontSize: '0.75rem', color: 'var(--muted)', lineHeight: 1.4 }}>One student in the hot seat vs. the whole class</p>
+          </div>
+          <div className="card-sm" style={{
+            flex: 1, minWidth: 150, cursor: 'pointer', textAlign: 'center', padding: '1rem 0.75rem',
+            border: gameMode === 'comeback_court' ? '2px solid #f5c542' : '',
+            background: gameMode === 'comeback_court' ? 'rgba(245,197,66,0.08)' : '',
+            transition: 'all 0.2s'
+          }} onClick={() => setGameMode('comeback_court')}>
+            <div style={{ color: '#f5c542', marginBottom: '0.2rem', display: 'flex', justifyContent: 'center' }}><CrownIcon size={30} /></div>
+            <p style={{ fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.2rem' }}>Comeback Court</p>
+            <p style={{ fontSize: '0.75rem', color: 'var(--muted)', lineHeight: 1.4 }}>Miss and drop down, climb back up, chase the Throne</p>
           </div>
         </div>
 
@@ -452,7 +472,7 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           {isGQ && <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>🪙</div>}
           <p style={{ fontSize: '0.8rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.5rem' }}>
-            {isGQ ? 'Gold Quest — ' : isOVH ? '1 vs. 100 — ' : ''}Game PIN
+            {isGQ ? 'Gold Quest — ' : isOVH ? '1 vs. 100 — ' : isCC ? 'Comeback Court — ' : ''}Game PIN
           </p>
           <div className="gradient-text" style={{ fontSize: '4.5rem', fontWeight: 800, fontFamily: 'Syne', letterSpacing: '0.2em' }}>{session?.pin}</div>
           <div style={{
@@ -491,7 +511,7 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
           </div>
         </div>
         <button className="btn btn-primary btn-full btn-lg" disabled={players.length < (isOVH ? 2 : 1)} onClick={startGame}>
-          {isGQ ? 'Start Gold Quest' : isOVH ? 'Start 1 vs. 100' : 'Start game'} — {players.length} player{players.length !== 1 ? 's' : ''} ready
+          {isGQ ? 'Start Gold Quest' : isOVH ? 'Start 1 vs. 100' : isCC ? 'Start Comeback Court' : 'Start game'} — {players.length} player{players.length !== 1 ? 's' : ''} ready
         </button>
       </div>
     </div>
@@ -503,6 +523,17 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
       <p style={{ color: 'var(--muted)', marginBottom: '1rem' }}>Get ready!</p>
       <div className="countdown-num" key={countdown}>{countdown}</div>
     </div>
+  )
+
+  // ── Comeback Court (lives in comeback/ComebackCourtHost.js) ──
+  if (phase === 'cc') return (
+    <ComebackCourtHost
+      session={session}
+      questions={questions}
+      players={players}
+      answers={answers}
+      onEndGame={endGame}
+    />
   )
 
   // ── 1 vs. 100 (lives in OneVsHundredHost.js) ──

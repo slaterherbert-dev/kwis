@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { supabase } from '../supabase'
+import { CourtRules } from './comeback/CourtArt'
+import './comeback/ComebackCourt.css'
 
 export default function StudentLobby({ go, gameSession, player }) {
   const [playerCount, setPlayerCount] = useState(1)
@@ -24,7 +26,9 @@ export default function StudentLobby({ go, gameSession, player }) {
           return
         }
         if (payload.new.phase === 'question' || payload.new.phase === 'countdown') {
-          if (payload.new.game_mode === 'gold_quest') {
+          if (payload.new.game_mode === 'comeback_court') {
+            go('cc-play')
+          } else if (payload.new.game_mode === 'gold_quest') {
             go('gold-quest-play')
           } else {
             go('student-game')
@@ -62,6 +66,12 @@ export default function StudentLobby({ go, gameSession, player }) {
         <span style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>Players joined: </span>
         <strong style={{ fontFamily: 'Syne', fontSize: '1.2rem' }}>{playerCount}</strong>
       </div>
+      {gameSession?.game_mode === 'comeback_court' && (
+        <div className="cc" style={{ maxWidth: 440, margin: '1.75rem auto 0' }}>
+          <p style={{ fontWeight: 700, marginBottom: '0.6rem' }}>How Comeback Court works</p>
+          <CourtRules />
+        </div>
+      )}
     </div>
   )
 }
