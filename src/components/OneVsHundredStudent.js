@@ -1,5 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { supabase } from '../supabase'
+import QuestionImage from './QuestionImage'
+import { secondsFor, preloadImage } from '../lib/questionImages'
 
 // ═══════════════════════════════════════════════════════════════
 // 1 vs. 100 — STUDENT CHROMEBOOK SCREEN
@@ -39,14 +41,17 @@ export default function OneVsHundredStudent({ go, gameSession, player }) {
   const [players, setPlayers] = useState([])
   const [myAnswer, setMyAnswer] = useState(null) // ORIGINAL option index (before shuffle)
   const [timer, setTimer] = useState(MOB_SECONDS)
+  const [timerTotal, setTimerTotal] = useState(MOB_SECONDS)
   const [kicked, setKicked] = useState(false)
   const timerRef = useRef(null)
   const lastQRef = useRef(null)
   const lastPhaseRef = useRef(null)
+  const questionsRef = useRef([])
 
   useEffect(() => {
     (async () => {
-      const { data: qs } = await supabase.from('questions').select('*').eq('set_id', gameSession.set_id).order('position')
+      const { data: qs } = await supabase.from('questions').select('*').eq('set_id', gameSession.set_id).order('position').order('id')
+      questionsRef.current = qs || []
       setQuestions(qs || [])
       await fetchPlayers()
       const { data: fresh } = await supabase.from('game_sessions').select('*').eq('id', gameSession.id).single()
@@ -86,7 +91,7 @@ export default function OneVsHundredStudent({ go, gameSession, player }) {
       lastQRef.current = s.current_question
       setMyAnswer(null)
       checkExistingAnswer(s.current_question)
-      startTimer()
+      startTimer(secondsFor(questionsRef.current[s.current_question], MOB_SECONDS))
     } else if (newIndex) {
       lastQRef.current = s.current_question
       setMyAnswer(null)
@@ -102,9 +107,20 @@ export default function OneVsHundredStudent({ go, gameSession, player }) {
     if (data) setMyAnswer(data.answer_given)
   }
 
-  function startTimer() {
+  // Load the current and next question's pictures in the background
+  const currentIndex = session?.current_question
+  useEffect(() => {
+    if (currentIndex === null || currentIndex === undefined) return
+    const cur = questions[currentIndex]
+    const next = questions[currentIndex + 1]
+    if (cur) preloadImage(cur.image_url)
+    if (next) preloadImage(next.image_url)
+  }, [questions, currentIndex])
+
+  function startTimer(seconds = MOB_SECONDS) {
     clearInterval(timerRef.current)
-    let t = MOB_SECONDS
+    let t = seconds
+    setTimerTotal(seconds)
     setTimer(t)
     timerRef.current = setInterval(() => {
       t--
@@ -288,7 +304,7 @@ export default function OneVsHundredStudent({ go, gameSession, player }) {
         {!revealed && !isContestant && myStatus === 'alive' && myAnswer === null && (
           <div style={{ marginBottom: '0.75rem' }}>
             <div style={{ height: 6, borderRadius: 3, background: 'var(--surface2)', overflow: 'hidden' }}>
-              <div style={{ height: '100%', width: `${(timer / MOB_SECONDS) * 100}%`, background: timer > 10 ? 'var(--green)' : timer > 5 ? 'var(--yellow)' : 'var(--red)', transition: 'width 1s linear' }} />
+              <div style={{ height: '100%', width: `${(timer / timerTotal) * 100}%`, background: timer > 10 ? 'var(--green)' : timer > 5 ? 'var(--yellow)' : 'var(--red)', transition: 'width 1s linear' }} />
             </div>
             <p style={{ fontSize: '0.8rem', color: 'var(--muted)', marginTop: '0.25rem' }}>{timer}s to answer</p>
           </div>
@@ -297,6 +313,8 @@ export default function OneVsHundredStudent({ go, gameSession, player }) {
         <div className="card" style={{ marginBottom: '1rem', padding: '1rem 1.1rem' }}>
           <p style={{ fontFamily: 'Syne', fontWeight: 600, fontSize: '1.05rem', lineHeight: 1.45 }}>{q.question_text}</p>
         </div>
+
+        <QuestionImage q={q} maxHeight="32vh" compact />
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: '1rem' }}>
           {order.map((origIdx, i) => {

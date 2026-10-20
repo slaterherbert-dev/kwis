@@ -1,5 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { supabase } from '../supabase'
+import QuestionImage from './QuestionImage'
+import { secondsFor, preloadImage } from '../lib/questionImages'
 
 // Deterministic shuffle: same session + question always produces the same order
 // on every device, but a NEW game session gets a different order — so students
@@ -43,10 +45,12 @@ export default function StudentGame({ go, gameSession, player, setPlayer }) {
   const [score, setScore] = useState(player?.score || 0)
   const [rank, setRank] = useState(null)
   const [timer, setTimer] = useState(TIMER_SECONDS)
+  const [timerTotal, setTimerTotal] = useState(TIMER_SECONDS)
   const [answered, setAnswered] = useState(false)
   const [kicked, setKicked] = useState(false)
   const timerRef = useRef(null)
   const lastQRef = useRef(-1)
+  const questionsRef = useRef([])
 
   useEffect(() => {
     (async () => {
@@ -79,7 +83,7 @@ export default function StudentGame({ go, gameSession, player, setPlayer }) {
       setPhase('revealed')
     } else if (freshSession.phase === 'question') {
       setPhase('question')
-      startTimer()
+      startTimer(secondsFor((qs || [])[freshSession.current_question], TIMER_SECONDS))
     }
     // Restore whether this player already answered the current question
     const { data: existingAnswer } = await supabase
@@ -104,8 +108,9 @@ export default function StudentGame({ go, gameSession, player, setPlayer }) {
   }
 
   async function fetchQuestions() {
-    const { data } = await supabase.from('questions').select('*').eq('set_id', gameSession.set_id).order('position')
+    const { data } = await supabase.from('questions').select('*').eq('set_id', gameSession.set_id).order('position').order('id')
     const qs = data || []
+    questionsRef.current = qs
     setQuestions(qs)
     return qs
   }
@@ -120,7 +125,7 @@ export default function StudentGame({ go, gameSession, player, setPlayer }) {
       setAnswered(false)
       setPointsEarned(0)
       setPhase('question')
-      startTimer()
+      startTimer(secondsFor(questionsRef.current[newSession.current_question], TIMER_SECONDS))
     }
     if (newSession.phase === 'revealed') {
       setPhase('revealed')
@@ -128,12 +133,21 @@ export default function StudentGame({ go, gameSession, player, setPlayer }) {
     }
   }
 
-  function startTimer() {
+  // Load the next question's picture in the background so it's ready in time
+  useEffect(() => {
+    const cur = questions[currentQ]
+    const next = questions[currentQ + 1]
+    if (cur) preloadImage(cur.image_url)
+    if (next) preloadImage(next.image_url)
+  }, [questions, currentQ])
+
+  function startTimer(seconds = TIMER_SECONDS) {
     if (timerRef.current) {
       clearInterval(timerRef.current)
       timerRef.current = null
     }
-    let t = TIMER_SECONDS
+    let t = seconds
+    setTimerTotal(seconds)
     setTimer(t)
     timerRef.current = setInterval(() => {
       t--
@@ -156,7 +170,7 @@ export default function StudentGame({ go, gameSession, player, setPlayer }) {
     const order = seededShuffleIndices(4, `${gameSession.id}-${q.id}`)
     const originalIdx = order[idx]
     const isCorrect = originalIdx === q.correct_index
-    const pts = isCorrect ? Math.max(500, Math.round(1000 * (timer / TIMER_SECONDS))) : 0
+    const pts = isCorrect ? Math.max(500, Math.round(1000 * (timer / timerTotal))) : 0
     setPointsEarned(pts)
 
     const newScore = score + pts
@@ -185,7 +199,7 @@ export default function StudentGame({ go, gameSession, player, setPlayer }) {
   const optOrder = q ? seededShuffleIndices(4, `${gameSession.id}-${q.id}`) : [0, 1, 2, 3]
   const optKeys = optOrder.map(i => optKeysOriginal[i])
   const correctDisplayIndex = q ? optOrder.indexOf(q.correct_index) : -1
-  const timerPct = (timer / TIMER_SECONDS) * 100
+  const timerPct = (timer / timerTotal) * 100
   const timerColor = timer > 10 ? 'var(--green)' : timer > 5 ? 'var(--yellow)' : 'var(--red)'
   const circumference = 2 * Math.PI * 22
 
@@ -236,6 +250,8 @@ export default function StudentGame({ go, gameSession, player, setPlayer }) {
           <p style={{ fontFamily: 'Syne', fontWeight: 600, fontSize: '1.05rem', lineHeight: 1.45 }}>{q.question_text}</p>
         </div>
       </div>
+
+      <QuestionImage q={q} maxHeight="32vh" compact />
 
       {/* Options */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: '1rem' }}>

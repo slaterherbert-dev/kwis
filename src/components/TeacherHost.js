@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
 import OneVsHundredHost from './OneVsHundredHost'
+import QuestionImage from './QuestionImage'
+import { secondsFor, preloadImage } from '../lib/questionImages'
 
 // Deterministic shuffle: same session + question always produces the same order
 // on every device (teacher + all students), but a NEW game session gets a
@@ -51,12 +53,14 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
   const [players, setPlayers] = useState([])
   const [answers, setAnswers] = useState([])
   const [timer, setTimer] = useState(TIMER_SECONDS)
+  const [timerTotal, setTimerTotal] = useState(TIMER_SECONDS)
   const [countdown, setCountdown] = useState(3)
   const [gqTimeLeft, setGqTimeLeft] = useState(null)
   const [session, setSession] = useState(null)
   const timerRef = useRef(null)
   const countdownRef = useRef(null)
   const sessionRef = useRef(null)
+  const questionsRef = useRef([])
   const pollRef = useRef(null)
   const gqTimerRef = useRef(null)
 
@@ -98,9 +102,11 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
   }
 
   async function startLobby() {
-    const { data: qs } = await supabase.from('questions').select('*').eq('set_id', selectedSet.id).order('position')
+    const { data: qs } = await supabase.from('questions').select('*').eq('set_id', selectedSet.id).order('position').order('id')
     if (!qs || qs.length === 0) { alert('This question set has no questions. Add some in Admin first.'); return }
     setQuestions(qs)
+    questionsRef.current = qs
+    if (gameMode === 'classic' || gameMode === 'one_vs_100') preloadImage(qs[0].image_url)
     const pin = generatePin()
     const { data } = await supabase.from('game_sessions').insert([{
       pin,
@@ -167,11 +173,15 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
   async function loadQuestion(idx) {
     clearInterval(timerRef.current)
     timerRef.current = null
+    const seconds = secondsFor(questionsRef.current[idx], TIMER_SECONDS)
+    const upcoming = questionsRef.current[idx + 1]
+    if (upcoming) preloadImage(upcoming.image_url)
     setCurrentQ(idx)
-    setTimer(TIMER_SECONDS)
+    setTimerTotal(seconds)
+    setTimer(seconds)
     setPhase('question')
     await supabase.from('game_sessions').update({ current_question: idx, phase: 'question', revealed: false }).eq('id', sessionRef.current.id)
-    let t = TIMER_SECONDS
+    let t = seconds
     timerRef.current = setInterval(() => {
       t--
       setTimer(t)
@@ -289,7 +299,7 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
     rows.push(['Question', 'Correct Answer', '# Correct', '# Wrong', 'Miss Rate'])
     questions.forEach((q, qi) => {
       const d = missData[qi]
-      rows.push([q.question_text, opts[q.correct_index], d.correct, d.wrong, `${d.missRate}%`])
+      rows.push([q.image_url ? `[picture] ${q.question_text}` : q.question_text, opts[q.correct_index], d.correct, d.wrong, `${d.missRate}%`])
     })
 
     const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')
@@ -307,7 +317,7 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
   const correctCount = answers.filter(a => a.question_index === currentQ && a.is_correct).length
   const optColors = ['var(--opt-a)', 'var(--opt-b)', 'var(--opt-c)', 'var(--opt-d)']
   const optLabels = ['A', 'B', 'C', 'D']
-  const timerPct = (timer / TIMER_SECONDS) * 100
+  const timerPct = (timer / timerTotal) * 100
   const timerColor = timer > 10 ? 'var(--green)' : timer > 5 ? 'var(--yellow)' : 'var(--red)'
   const circumference = 2 * Math.PI * 22
 
@@ -668,6 +678,8 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
             <div className="card" style={{ marginBottom: '1rem' }}>
               <p style={{ fontSize: '1.3rem', fontWeight: 700, fontFamily: 'Syne', lineHeight: 1.4 }}>{q.question_text}</p>
             </div>
+
+            <QuestionImage q={q} maxHeight="45vh" />
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem', marginBottom: '1rem' }}>
               {(() => {

@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
+import QuestionImage from './QuestionImage'
+import { secondsFor, preloadImage } from '../lib/questionImages'
 
 // ═══════════════════════════════════════════════════════════════
 // 1 vs. 100 — HOST / PROJECTOR SCREEN
@@ -68,6 +70,11 @@ export default function OneVsHundredHost({ session, questions, players, answers,
 
   useEffect(() => () => clearInterval(timerRef.current), [])
 
+  // Load the next question's picture in the background so it's ready in time
+  useEffect(() => {
+    if (questions[nextQ]) preloadImage(questions[nextQ].image_url)
+  }, [questions, nextQ])
+
   // Anyone who joins (brand new) in the middle of a round sits out until the next round.
   useEffect(() => {
     if (!['intro', 'question', 'revealed'].includes(stage)) return
@@ -133,7 +140,7 @@ export default function OneVsHundredHost({ session, questions, players, answers,
     await supabase.from('game_sessions').update({ current_question: idx, phase: 'question', revealed: false }).eq('id', session.id)
     setStage('question')
     clearInterval(timerRef.current)
-    let t = MOB_SECONDS
+    let t = secondsFor(questions[idx], MOB_SECONDS)
     setTimer(t)
     timerRef.current = setInterval(() => {
       t--
@@ -407,6 +414,8 @@ export default function OneVsHundredHost({ session, questions, players, answers,
               <div className="card" style={{ marginBottom: '1rem' }}>
                 <p style={{ fontSize: '1.35rem', fontWeight: 700, fontFamily: 'Syne', lineHeight: 1.4 }}>{q.question_text}</p>
               </div>
+
+              <QuestionImage q={q} maxHeight="45vh" />
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem', marginBottom: '1rem' }}>
                 {order.map((origIdx, i) => {

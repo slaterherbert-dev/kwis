@@ -1,8 +1,17 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
 import { useAuth } from '../contexts/AuthContext'
+import QuestionImageField from './QuestionImageField'
+import { deleteImagesIfUnused, copyImageToMyFolder } from '../lib/questionImages'
 
 const SUBJECTS = ['Economics', 'IB History', 'Civics', 'Other']
+
+const EMPTY_Q = {
+  question_text: '', option_a: '', option_b: '', option_c: '', option_d: '', correct_index: 0, explanation: '',
+  image_url: null, image_alt: '', image_caption: '', image_width: null, image_height: null
+}
+
+const IMAGE_SETUP_MESSAGE = 'Pictures need a quick database update. Run kwis-question-images-setup.sql in Supabase (SQL Editor → New query → Run), then try again.'
 
 function generateCode(existingCodes = []) {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -25,8 +34,10 @@ export default function TeacherAdmin({ go }) {
   const [showQModal, setShowQModal] = useState(false)
   const [editingQ, setEditingQ] = useState(null)
   const [setForm, setSetForm] = useState({ name: '', subject: 'Economics' })
-  const [qForm, setQForm] = useState({ question_text: '', option_a: '', option_b: '', option_c: '', option_d: '', correct_index: 0, explanation: '' })
+  const [qForm, setQForm] = useState(EMPTY_Q)
   const [saving, setSaving] = useState(false)
+  const [imageBusy, setImageBusy] = useState(false)
+  const uploadsThisEdit = useRef([]) // pictures uploaded since the question form opened
 
   // Share modal state
   const [shareTarget, setShareTarget] = useState(null)
@@ -61,8 +72,16 @@ export default function TeacherAdmin({ go }) {
   }
 
   async function fetchQuestions(setId) {
-    const { data } = await supabase.from('questions').select('*').eq('set_id', setId).order('position')
-    setQuestions(data || [])
+    const { data } = await supabase.from('questions').select('*').eq('set_id', setId).order('position').order('id')
+    const qs = data || []
+    // Older edits could leave two questions with the same position. Renumber 0, 1, 2…
+    // so every screen in a game agrees on which question is which.
+    const fixes = qs.map((q, i) => (q.position === i ? null : { id: q.id, position: i })).filter(Boolean)
+    if (fixes.length > 0) {
+      await Promise.all(fixes.map(f => supabase.from('questions').update({ position: f.position }).eq('id', f.id)))
+      qs.forEach((q, i) => { q.position = i })
+    }
+    setQuestions(qs)
   }
 
   async function saveSet() {
@@ -79,8 +98,10 @@ export default function TeacherAdmin({ go }) {
 
   async function deleteSet(id) {
     if (!window.confirm('Delete this question set and all its questions?')) return
+    const { data: pics } = await supabase.from('questions').select('image_url').eq('set_id', id).not('image_url', 'is', null)
     await supabase.from('question_sets').delete().eq('id', id)
     fetchSets()
+    deleteImagesIfUnused((pics || []).map(p => p.image_url), user.id)
   }
 
   async function openSet(set) {
@@ -91,33 +112,81 @@ export default function TeacherAdmin({ go }) {
 
   async function saveQuestion() {
     setSaving(true)
-    const payload = { ...qForm, set_id: activeSet.id, correct_index: parseInt(qForm.correct_index), position: questions.length }
-    if (editingQ) {
-      await supabase.from('questions').update(payload).eq('id', editingQ.id)
-    } else {
-      await supabase.from('questions').insert([payload])
+    const hasImage = !!qForm.image_url
+    const imageFields = hasImage ? {
+      image_url: qForm.image_url,
+      image_alt: (qForm.image_alt || '').trim() || null,
+      image_caption: (qForm.image_caption || '').trim() || null,
+      image_width: qForm.image_width || null,
+      image_height: qForm.image_height || null,
+    } : { image_url: null, image_alt: null, image_caption: null, image_width: null, image_height: null }
+
+    // Only send image fields when needed, so text-only questions still save
+    // even before the picture database update has been run.
+    const needsImageColumns = hasImage || (editingQ && editingQ.image_url)
+    const payload = {
+      set_id: activeSet.id,
+      question_text: qForm.question_text,
+      option_a: qForm.option_a, option_b: qForm.option_b, option_c: qForm.option_c, option_d: qForm.option_d,
+      correct_index: parseInt(qForm.correct_index),
+      explanation: qForm.explanation,
+      ...(needsImageColumns ? imageFields : {})
     }
-    setShowQModal(false)
-    resetQForm()
+    // Editing keeps the question's place. New questions go after the last one.
+    if (!editingQ) {
+      payload.position = questions.reduce((max, q) => Math.max(max, q.position ?? -1), -1) + 1
+    }
+
+    const { error } = editingQ
+      ? await supabase.from('questions').update(payload).eq('id', editingQ.id)
+      : await supabase.from('questions').insert([payload])
+    if (error) {
+      setSaving(false)
+      alert(/image_|column/i.test(error.message || '') ? IMAGE_SETUP_MESSAGE : 'Couldn’t save the question. Check your connection and try again.')
+      return
+    }
+
+    closeQModal(true)
     await fetchQuestions(activeSet.id)
     setSaving(false)
   }
 
-  async function deleteQuestion(id) {
+  // Closes the question form and deletes any picture files that ended up unused
+  // (uploaded and then replaced, removed, or cancelled).
+  function closeQModal(saved) {
+    const original = editingQ ? editingQ.image_url : null
+    const kept = saved ? qForm.image_url : original
+    const candidates = [...uploadsThisEdit.current, ...(saved && original ? [original] : [])]
+      .filter(url => url && url !== kept)
+    setShowQModal(false)
+    resetQForm()
+    if (candidates.length > 0) deleteImagesIfUnused(candidates, user.id)
+  }
+
+  async function deleteQuestion(q) {
     if (!window.confirm('Delete this question?')) return
-    await supabase.from('questions').delete().eq('id', id)
+    await supabase.from('questions').delete().eq('id', q.id)
     fetchQuestions(activeSet.id)
+    if (q.image_url) deleteImagesIfUnused([q.image_url], user.id)
   }
 
   function openEditQ(q) {
+    resetQForm()
     setEditingQ(q)
-    setQForm({ question_text: q.question_text, option_a: q.option_a, option_b: q.option_b, option_c: q.option_c, option_d: q.option_d, correct_index: q.correct_index, explanation: q.explanation || '' })
+    setQForm({
+      question_text: q.question_text, option_a: q.option_a, option_b: q.option_b, option_c: q.option_c, option_d: q.option_d,
+      correct_index: q.correct_index, explanation: q.explanation || '',
+      image_url: q.image_url || null, image_alt: q.image_alt || '', image_caption: q.image_caption || '',
+      image_width: q.image_width || null, image_height: q.image_height || null
+    })
     setShowQModal(true)
   }
 
   function resetQForm() {
-    setQForm({ question_text: '', option_a: '', option_b: '', option_c: '', option_d: '', correct_index: 0, explanation: '' })
+    setQForm(EMPTY_Q)
     setEditingQ(null)
+    setImageBusy(false)
+    uploadsThisEdit.current = []
   }
 
   async function handleSignOut() {
@@ -213,7 +282,9 @@ export default function TeacherAdmin({ go }) {
     }
 
     if (srcQuestions && srcQuestions.length > 0) {
-      const questionCopies = srcQuestions.map(q => ({
+      // Each picture gets copied into this teacher's own folder
+      const imageCopies = await Promise.all(srcQuestions.map(q => q.image_url ? copyImageToMyFolder(q.image_url, user.id) : null))
+      const questionCopies = srcQuestions.map((q, i) => ({
         set_id: newSet.id,
         question_text: q.question_text,
         option_a: q.option_a,
@@ -222,7 +293,14 @@ export default function TeacherAdmin({ go }) {
         option_d: q.option_d,
         correct_index: q.correct_index,
         explanation: q.explanation,
-        position: q.position
+        position: i,
+        ...(q.image_url ? {
+          image_url: imageCopies[i],
+          image_alt: q.image_alt || null,
+          image_caption: q.image_caption || null,
+          image_width: q.image_width || null,
+          image_height: q.image_height || null,
+        } : {})
       }))
 
       const { error: qErr } = await supabase.from('questions').insert(questionCopies)
@@ -449,6 +527,7 @@ export default function TeacherAdmin({ go }) {
                 {questions.map((q, i) => (
                   <div key={q.id} className="card-sm" style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
                     <div style={{ fontFamily: 'Syne', fontWeight: 700, fontSize: '1.1rem', color: 'var(--muted)', minWidth: 28, paddingTop: '2px' }}>{i + 1}</div>
+                    {q.image_url && <img className="qimg-thumb" src={q.image_url} alt={q.image_alt || 'Question picture'} loading="lazy" />}
                     <div style={{ flex: 1 }}>
                       <p style={{ fontWeight: 600, marginBottom: '0.5rem', lineHeight: 1.4 }}>{q.question_text}</p>
                       <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
@@ -467,7 +546,7 @@ export default function TeacherAdmin({ go }) {
                     </div>
                     <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
                       <button className="btn" style={{ padding: '0.45rem 0.75rem', fontSize: '0.8rem' }} onClick={() => openEditQ(q)}>Edit</button>
-                      <button className="btn btn-danger" style={{ padding: '0.45rem 0.75rem', fontSize: '0.8rem' }} onClick={() => deleteQuestion(q.id)}>🗑</button>
+                      <button className="btn btn-danger" style={{ padding: '0.45rem 0.75rem', fontSize: '0.8rem' }} onClick={() => deleteQuestion(q)}>🗑</button>
                     </div>
                   </div>
                 ))}
@@ -502,13 +581,20 @@ export default function TeacherAdmin({ go }) {
 
       {/* NEW / EDIT QUESTION MODAL */}
       {showQModal && (
-        <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && (setShowQModal(false), resetQForm())}>
+        <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && !imageBusy && closeQModal(false)}>
           <div className="modal">
             <h2>{editingQ ? 'Edit question' : 'Add question'}</h2>
             <div className="form-group">
               <label>Question</label>
               <textarea placeholder="Enter the question text…" value={qForm.question_text} onChange={e => setQForm({ ...qForm, question_text: e.target.value })} />
             </div>
+            <QuestionImageField
+              form={qForm}
+              teacherId={user.id}
+              onChange={changes => setQForm(f => ({ ...f, ...changes }))}
+              onUploaded={url => { uploadsThisEdit.current.push(url) }}
+              onBusy={setImageBusy}
+            />
             {['option_a', 'option_b', 'option_c', 'option_d'].map((opt, i) => (
               <div className="form-group" key={opt}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -529,8 +615,8 @@ export default function TeacherAdmin({ go }) {
               <textarea placeholder="Why is this the correct answer?" value={qForm.explanation} onChange={e => setQForm({ ...qForm, explanation: e.target.value })} />
             </div>
             <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
-              <button className="btn" onClick={() => { setShowQModal(false); resetQForm(); }}>Cancel</button>
-              <button className="btn btn-primary" disabled={!qForm.question_text || !qForm.option_a || saving} onClick={saveQuestion}>{saving ? 'Saving…' : editingQ ? 'Save changes' : 'Add question'}</button>
+              <button className="btn" disabled={imageBusy} onClick={() => closeQModal(false)}>Cancel</button>
+              <button className="btn btn-primary" disabled={!qForm.question_text || !qForm.option_a || saving || imageBusy} onClick={saveQuestion}>{saving ? 'Saving…' : editingQ ? 'Save changes' : 'Add question'}</button>
             </div>
           </div>
         </div>

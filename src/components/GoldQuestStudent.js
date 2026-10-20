@@ -1,5 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { supabase } from '../supabase'
+import QuestionImage from './QuestionImage'
+import { preloadImage } from '../lib/questionImages'
 
 // Deterministic shuffle: same session + question always produces the same order
 // on every device, but a NEW game session gets a different order — so students
@@ -175,7 +177,7 @@ export default function GoldQuestStudent({ go, gameSession, player }) {
   }
 
   async function loadQuestions() {
-    const { data } = await supabase.from('questions').select('*').eq('set_id', gameSession.set_id).order('position')
+    const { data } = await supabase.from('questions').select('*').eq('set_id', gameSession.set_id).order('position').order('id')
     const qs = data || []
     setQuestions(qs)
     setShuffledOrder(shuffleArray(qs.map((_, i) => i)))
@@ -308,6 +310,11 @@ export default function GoldQuestStudent({ go, gameSession, player }) {
   const totalDuration = gameSession.gold_quest_duration_seconds ? gameSession.gold_quest_duration_seconds * 1000 : null
   const timerPct  = (totalDuration && timeLeft !== null) ? (timeLeft / totalDuration) * 100 : 100
   const timerColor = timeLeft === null ? 'var(--accent)' : timeLeft > 60000 ? 'var(--accent)' : timeLeft > 30000 ? 'var(--yellow, #ffaa32)' : 'var(--red)'
+
+  // Load the next question's picture in the background so it's ready in time
+  const upcoming = questions[shuffledOrder[currentIdx + 1]]
+  const upcomingImage = upcoming ? upcoming.image_url : null
+  useEffect(() => { preloadImage(upcomingImage) }, [upcomingImage])
 
   if (kicked) return (
     <div className="screen centered" style={{ textAlign: 'center' }}>
@@ -450,6 +457,8 @@ export default function GoldQuestStudent({ go, gameSession, player }) {
               {q.question_text}
             </p>
           </div>
+
+          <QuestionImage q={q} maxHeight="30vh" compact />
 
           {/* 2x2 grid */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.55rem', marginBottom: '0.85rem' }}>
