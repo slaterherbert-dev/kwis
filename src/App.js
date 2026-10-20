@@ -12,6 +12,7 @@ import StudentFinal from './components/StudentFinal'
 import GoldQuestStudent from './components/GoldQuestStudent'
 import OneVsHundredStudent from './components/OneVsHundredStudent'
 import ComebackCourtStudent from './components/comeback/ComebackCourtStudent'
+import ConquestStudent from './components/conquest/ConquestStudent'
 import './App.css'
 
 // Bord only downloads when a teacher opens it, so students joining
@@ -125,6 +126,7 @@ function AppInner() {
       {screen === 'gold-quest-play' && <GoldQuestStudent go={go} gameSession={gameSession} player={player} setPlayer={setPlayer} />}
       {screen === 'ovh-play'     && <OneVsHundredStudent go={go} gameSession={gameSession} player={player} />}
       {screen === 'cc-play'      && <ComebackCourtStudent go={go} gameSession={gameSession} player={player} />}
+      {screen === 'cq-play'      && <ConquestStudent go={go} gameSession={gameSession} player={player} />}
     </div>
   )
 }

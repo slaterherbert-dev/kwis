@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { supabase } from '../supabase'
 import { CourtRules } from './comeback/CourtArt'
+import { ConquestRules } from './conquest/ConquestHost'
 import './comeback/ComebackCourt.css'
 
 export default function StudentLobby({ go, gameSession, player }) {
@@ -26,7 +27,9 @@ export default function StudentLobby({ go, gameSession, player }) {
           return
         }
         if (payload.new.phase === 'question' || payload.new.phase === 'countdown') {
-          if (payload.new.game_mode === 'comeback_court') {
+          if (payload.new.game_mode === 'conquest') {
+            go('cq-play')
+          } else if (payload.new.game_mode === 'comeback_court') {
             go('cc-play')
           } else if (payload.new.game_mode === 'gold_quest') {
             go('gold-quest-play')
@@ -66,6 +69,13 @@ export default function StudentLobby({ go, gameSession, player }) {
         <span style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>Players joined: </span>
         <strong style={{ fontFamily: 'Syne', fontSize: '1.2rem' }}>{playerCount}</strong>
       </div>
+      {gameSession?.game_mode === 'conquest' && (
+        <div className="card" style={{ maxWidth: 460, margin: '1.75rem auto 0', textAlign: 'left' }}>
+          <p style={{ fontWeight: 700, marginBottom: '0.6rem' }}>🏰 How Conquest works</p>
+          <ConquestRules />
+          <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginTop: '0.75rem' }}>You’ll play under a secret banner. Names are revealed at the end!</p>
+        </div>
+      )}
       {gameSession?.game_mode === 'comeback_court' && (
         <div className="cc" style={{ maxWidth: 440, margin: '1.75rem auto 0' }}>
           <p style={{ fontWeight: 700, marginBottom: '0.6rem' }}>How Comeback Court works</p>

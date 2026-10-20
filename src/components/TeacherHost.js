@@ -3,6 +3,8 @@ import { supabase } from '../supabase'
 import OneVsHundredHost from './OneVsHundredHost'
 import ComebackCourtHost from './comeback/ComebackCourtHost'
 import { CrownIcon } from './comeback/CourtArt'
+import ConquestHost from './conquest/ConquestHost'
+import { DURATION_OPTIONS as CQ_DURATIONS } from '../lib/conquest'
 import QuestionImage from './QuestionImage'
 import { secondsFor, preloadImage } from '../lib/questionImages'
 import { QUESTION_SECONDS_OPTIONS, savedQuestionSeconds, saveQuestionSeconds, timerColorFor } from '../lib/timing'
@@ -46,7 +48,10 @@ function formatTime(seconds) {
 }
 
 export default function TeacherHost({ go, gameSession, setGameSession }) {
-  const [phase, setPhase] = useState('pick') // pick | lobby | countdown | question | revealed | gq-live | ovh | cc | final
+  const [phase, setPhase] = useState('pick') // pick | lobby | countdown | question | revealed | gq-live | ovh | cc | cq | final
+  const phaseRef = useRef(phase)
+  phaseRef.current = phase
+  const [cqDuration, setCqDuration] = useState(720) // Conquest game length, seconds
   const [sets, setSets] = useState([])
   const [selectedSet, setSelectedSet] = useState(null)
   const [gameMode, setGameMode] = useState('classic') // classic | gold_quest | one_vs_100
@@ -86,8 +91,10 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
   useEffect(() => {
     if (!session) return
     const sub = supabase.channel('host-' + session.id)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'players', filter: `session_id=eq.${session.id}` }, () => fetchPlayers(session.id))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'answers', filter: `session_id=eq.${session.id}` }, () => fetchAnswers(session.id))
+      // During Conquest every answer changes a player row; the Conquest screen has its own
+      // live map, so skip re-downloading every player and answer each time (saves data).
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'players', filter: `session_id=eq.${session.id}` }, () => { if (phaseRef.current !== 'cq') fetchPlayers(session.id) })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'answers', filter: `session_id=eq.${session.id}` }, () => { if (phaseRef.current !== 'cq') fetchAnswers(session.id) })
       .subscribe()
     return () => supabase.removeChannel(sub)
   }, [session])
@@ -139,6 +146,12 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
   }
 
   async function startGame() {
+    if (gameMode === 'conquest') {
+      // Conquest runs in its own component (conquest/ConquestHost.js)
+      await fetchPlayers(session.id)
+      setPhase('cq')
+      return
+    }
     if (gameMode === 'comeback_court') {
       // Comeback Court runs in its own component (comeback/ComebackCourtHost.js)
       await fetchPlayers(session.id)
@@ -352,7 +365,8 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
   const isGQ = gameMode === 'gold_quest'
   const isOVH = gameMode === 'one_vs_100'
   const isCC = gameMode === 'comeback_court'
-  const fmtScore = (n) => isOVH ? `$${(n || 0).toLocaleString()}` : isGQ ? `🪙 ${(n || 0).toLocaleString()}` : `${(n || 0).toLocaleString()} pts`
+  const isCQ = gameMode === 'conquest'
+  const fmtScore = (n) => isOVH ? `$${(n || 0).toLocaleString()}` : isGQ ? `🪙 ${(n || 0).toLocaleString()}` : isCQ ? `${n || 0} tile${n === 1 ? '' : 's'}` : `${(n || 0).toLocaleString()} pts`
 
   // GQ timer display helpers
   const gqTimerPct = gqTimeLeft !== null ? (gqTimeLeft / gqDuration) * 100 : 100
@@ -417,7 +431,40 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
             <p style={{ fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.2rem' }}>Comeback Court</p>
             <p style={{ fontSize: '0.75rem', color: 'var(--muted)', lineHeight: 1.4 }}>Miss and drop down, climb back up, chase the Throne</p>
           </div>
+          <div className="card-sm" style={{
+            flex: 1, minWidth: 150, cursor: 'pointer', textAlign: 'center', padding: '1rem 0.75rem',
+            border: gameMode === 'conquest' ? '2px solid #2fbf71' : '',
+            background: gameMode === 'conquest' ? 'rgba(47,191,113,0.08)' : '',
+            transition: 'all 0.2s'
+          }} onClick={() => setGameMode('conquest')}>
+            <div style={{ fontSize: '1.5rem', marginBottom: '0.35rem' }}>🏰</div>
+            <p style={{ fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.2rem' }}>Conquest</p>
+            <p style={{ fontSize: '0.75rem', color: 'var(--muted)', lineHeight: 1.4 }}>Earn gold, claim land, conquer the map</p>
+          </div>
         </div>
+
+        {/* Conquest game length */}
+        {gameMode === 'conquest' && (
+          <div style={{ marginBottom: '1.75rem' }}>
+            <p style={{ fontSize: '0.82rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.6rem' }}>
+              🕐 Game length
+            </p>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              {CQ_DURATIONS.map(opt => (
+                <button key={opt.seconds} onClick={() => setCqDuration(opt.seconds)} aria-pressed={cqDuration === opt.seconds}
+                  style={{
+                    padding: '0.5rem 1.1rem', borderRadius: 'var(--radius)', fontSize: '0.9rem', cursor: 'pointer',
+                    border: cqDuration === opt.seconds ? '2px solid #2fbf71' : '1px solid var(--border)',
+                    background: cqDuration === opt.seconds ? 'rgba(47,191,113,0.15)' : 'var(--surface)',
+                    color: cqDuration === opt.seconds ? '#2fbf71' : 'var(--text)',
+                    fontWeight: cqDuration === opt.seconds ? 700 : 500,
+                  }}>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Gold Quest duration picker */}
         {gameMode === 'gold_quest' && (
@@ -448,7 +495,7 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
         )}
 
         {/* Seconds per question (every mode except Gold Quest, which has a game clock) */}
-        {gameMode !== 'gold_quest' && (
+        {gameMode !== 'gold_quest' && gameMode !== 'conquest' && (
           <div style={{ marginBottom: '1.75rem' }}>
             <p style={{ fontSize: '0.82rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.6rem' }}>
               ⏱ Seconds per question
@@ -518,7 +565,7 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           {isGQ && <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>🪙</div>}
           <p style={{ fontSize: '0.8rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.5rem' }}>
-            {isGQ ? 'Gold Quest — ' : isOVH ? '1 vs. 100 — ' : isCC ? 'Comeback Court — ' : ''}Game PIN
+            {isGQ ? 'Gold Quest — ' : isOVH ? '1 vs. 100 — ' : isCC ? 'Comeback Court — ' : isCQ ? 'Conquest — ' : ''}Game PIN
           </p>
           <div className="gradient-text" style={{ fontSize: '4.5rem', fontWeight: 800, fontFamily: 'Syne', letterSpacing: '0.2em' }}>{session?.pin}</div>
           <div style={{
@@ -534,7 +581,7 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
             </p>
             <p style={{ fontSize: '0.78rem', color: 'var(--muted)', marginTop: '0.35rem' }}>→ "Join a game" → enter the PIN above</p>
           </div>
-          {!isGQ && (
+          {!isGQ && !isCQ && (
             <p style={{ color: 'var(--muted)', fontSize: '0.85rem', marginTop: '0.6rem' }}>
               ⏱ {questionSeconds} seconds per question
             </p>
@@ -562,7 +609,7 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
           </div>
         </div>
         <button className="btn btn-primary btn-full btn-lg" disabled={players.length < (isOVH ? 2 : 1)} onClick={startGame}>
-          {isGQ ? 'Start Gold Quest' : isOVH ? 'Start 1 vs. 100' : isCC ? 'Start Comeback Court' : 'Start game'} — {players.length} player{players.length !== 1 ? 's' : ''} ready
+          {isGQ ? 'Start Gold Quest' : isOVH ? 'Start 1 vs. 100' : isCC ? 'Start Comeback Court' : isCQ ? 'Open the map' : 'Start game'} — {players.length} player{players.length !== 1 ? 's' : ''} ready
         </button>
       </div>
     </div>
@@ -574,6 +621,16 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
       <p style={{ color: 'var(--muted)', marginBottom: '1rem' }}>Get ready!</p>
       <div className="countdown-num" key={countdown}>{countdown}</div>
     </div>
+  )
+
+  // ── Conquest (lives in conquest/ConquestHost.js) ──
+  if (phase === 'cq') return (
+    <ConquestHost
+      session={session}
+      players={players}
+      duration={cqDuration}
+      onEndGame={endGame}
+    />
   )
 
   // ── Comeback Court (lives in comeback/ComebackCourtHost.js) ──

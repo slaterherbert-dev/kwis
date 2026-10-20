@@ -23,6 +23,7 @@ export default function StudentFinal({ go, gameSession, player }) {
 
   const rankEmoji = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '🎮'
   const isOVH = gameSession?.game_mode === 'one_vs_100'
+  const isCQ = gameSession?.game_mode === 'conquest'
   const message = rank === 1 ? 'You won!' : rank <= 3 ? 'Top 3 — nice work!' : 'Good effort!'
 
   return (
@@ -38,9 +39,9 @@ export default function StudentFinal({ go, gameSession, player }) {
           {total && <p style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>of {total}</p>}
         </div>
         <div className="card-sm" style={{ textAlign: 'center', minWidth: 110 }}>
-          <p style={{ fontSize: '0.75rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.25rem' }}>{isOVH ? 'Winnings' : 'Score'}</p>
+          <p style={{ fontSize: '0.75rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.25rem' }}>{isOVH ? 'Winnings' : isCQ ? 'Land' : 'Score'}</p>
           <p style={{ fontFamily: 'Syne', fontWeight: 800, fontSize: '2rem' }}>{isOVH ? '$' : ''}{finalScore.toLocaleString()}</p>
-          <p style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{isOVH ? 'total' : 'points'}</p>
+          <p style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{isOVH ? 'total' : isCQ ? (finalScore === 1 ? 'tile' : 'tiles') : 'points'}</p>
         </div>
       </div>
 
