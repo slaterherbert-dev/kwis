@@ -4,7 +4,6 @@
 // each player's new court. Student screens only read the result.
 // ═══════════════════════════════════════════════════════════════
 
-export const QUESTION_SECONDS = 20 // picture questions get +10 (see secondsFor)
 export const THRONE_STREAK = 5     // right answers in a row to reach the Throne
 export const CLIMB_TARGET = 2      // right answers in a row to climb out of the Comeback Court
 export const COMEBACK_BONUS = 300  // points for climbing out

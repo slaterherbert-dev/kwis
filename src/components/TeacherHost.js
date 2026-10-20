@@ -5,6 +5,7 @@ import ComebackCourtHost from './comeback/ComebackCourtHost'
 import { CrownIcon } from './comeback/CourtArt'
 import QuestionImage from './QuestionImage'
 import { secondsFor, preloadImage } from '../lib/questionImages'
+import { QUESTION_SECONDS_OPTIONS, savedQuestionSeconds, saveQuestionSeconds, timerColorFor } from '../lib/timing'
 
 // Deterministic shuffle: same session + question always produces the same order
 // on every device (teacher + all students), but a NEW game session gets a
@@ -50,6 +51,9 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
   const [selectedSet, setSelectedSet] = useState(null)
   const [gameMode, setGameMode] = useState('classic') // classic | gold_quest | one_vs_100
   const [gqDuration, setGqDuration] = useState(300) // seconds, default 5 min
+  const [questionSeconds, setQuestionSeconds] = useState(savedQuestionSeconds)
+  const questionSecondsRef = useRef(questionSeconds)
+  questionSecondsRef.current = questionSeconds
   const [questions, setQuestions] = useState([])
   const [currentQ, setCurrentQ] = useState(0)
   const [players, setPlayers] = useState([])
@@ -110,14 +114,24 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
     questionsRef.current = qs
     if (gameMode !== 'gold_quest') preloadImage(qs[0].image_url)
     const pin = generatePin()
-    const { data } = await supabase.from('game_sessions').insert([{
+    const newGame = {
       pin,
       set_id: selectedSet.id,
       current_question: 0,
       phase: 'lobby',
       game_mode: gameMode,
       gold_quest_duration_seconds: gameMode === 'gold_quest' ? gqDuration : null
-    }]).select().single()
+    }
+    let { data, error } = await supabase.from('game_sessions')
+      .insert([{ ...newGame, question_seconds: questionSeconds }]).select().single()
+    if (error && /question_seconds/.test(error.message || '')) {
+      // The timer setting needs kwis-question-timer-setup.sql. Start the game anyway at 20 seconds.
+      setQuestionSeconds(20)
+      questionSecondsRef.current = 20
+      alert('Heads up: the seconds-per-question setting needs a quick database update (kwis-question-timer-setup.sql). This game will use 20 seconds.')
+      ;({ data, error } = await supabase.from('game_sessions').insert([newGame]).select().single())
+    }
+    if (error || !data) { alert('Couldn’t start the game. Check your connection and try again.'); return }
     setSession(data)
     setGameSession(data)
     await fetchPlayers(data.id)
@@ -182,7 +196,7 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
   async function loadQuestion(idx) {
     clearInterval(timerRef.current)
     timerRef.current = null
-    const seconds = secondsFor(questionsRef.current[idx], TIMER_SECONDS)
+    const seconds = secondsFor(questionsRef.current[idx], questionSecondsRef.current)
     const upcoming = questionsRef.current[idx + 1]
     if (upcoming) preloadImage(upcoming.image_url)
     setCurrentQ(idx)
@@ -327,7 +341,7 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
   const optColors = ['var(--opt-a)', 'var(--opt-b)', 'var(--opt-c)', 'var(--opt-d)']
   const optLabels = ['A', 'B', 'C', 'D']
   const timerPct = (timer / timerTotal) * 100
-  const timerColor = timer > 10 ? 'var(--green)' : timer > 5 ? 'var(--yellow)' : 'var(--red)'
+  const timerColor = timerColorFor(timer, timerTotal)
   const circumference = 2 * Math.PI * 22
 
   // ── Derived (gold quest) ──
@@ -433,6 +447,38 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
           </div>
         )}
 
+        {/* Seconds per question (every mode except Gold Quest, which has a game clock) */}
+        {gameMode !== 'gold_quest' && (
+          <div style={{ marginBottom: '1.75rem' }}>
+            <p style={{ fontSize: '0.82rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.6rem' }}>
+              ⏱ Seconds per question
+            </p>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+              {QUESTION_SECONDS_OPTIONS.map(n => (
+                <button key={n}
+                  onClick={() => { setQuestionSeconds(n); saveQuestionSeconds(n) }}
+                  aria-pressed={questionSeconds === n}
+                  style={{
+                    padding: '0.5rem 1.1rem',
+                    borderRadius: 'var(--radius)',
+                    border: questionSeconds === n ? '2px solid var(--accent)' : '1px solid var(--border)',
+                    background: questionSeconds === n ? 'rgba(108,99,255,0.15)' : 'var(--surface)',
+                    color: questionSeconds === n ? 'var(--accent)' : 'var(--text)',
+                    fontWeight: questionSeconds === n ? 700 : 500,
+                    fontSize: '0.9rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s'
+                  }}>
+                  {n} sec
+                </button>
+              ))}
+              <span style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>
+                {gameMode === 'one_vs_100' ? 'Time for the Mob. ' : ''}Picture questions get 10 extra seconds.
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Set list */}
         {sets.length === 0 ? (
           <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
@@ -488,6 +534,11 @@ export default function TeacherHost({ go, gameSession, setGameSession }) {
             </p>
             <p style={{ fontSize: '0.78rem', color: 'var(--muted)', marginTop: '0.35rem' }}>→ "Join a game" → enter the PIN above</p>
           </div>
+          {!isGQ && (
+            <p style={{ color: 'var(--muted)', fontSize: '0.85rem', marginTop: '0.6rem' }}>
+              ⏱ {questionSeconds} seconds per question
+            </p>
+          )}
           {isGQ && (
             <p style={{ color: 'var(--yellow, #ffaa32)', fontSize: '0.82rem', marginTop: '0.35rem' }}>
               ⏱ {GQ_DURATION_OPTIONS.find(o => o.seconds === gqDuration)?.label || formatTime(gqDuration)} game

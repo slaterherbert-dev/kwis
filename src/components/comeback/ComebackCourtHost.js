@@ -3,8 +3,9 @@ import { supabase } from '../../supabase'
 import QuestionImage from '../QuestionImage'
 import { secondsFor, preloadImage } from '../../lib/questionImages'
 import { seededShuffleIndices } from '../../lib/shuffle'
+import { baseSeconds, timerColorFor } from '../../lib/timing'
 import {
-  COURTS, COURT_ORDER, QUESTION_SECONDS, THRONE_STREAK, CLIMB_TARGET,
+  COURTS, COURT_ORDER, THRONE_STREAK, CLIMB_TARGET,
   ccStateOf, nextCourtState, toPlayerColumns,
 } from '../../lib/comebackCourt'
 import { CourtIcon, CrownIcon, StairsIcon, ClimbDots, CourtRules } from './CourtArt'
@@ -32,6 +33,7 @@ const UP_MOVES = ['climbed']
 const DOWN_MOVES = ['dropped', 'dethroned']
 
 export default function ComebackCourtHost({ session, questions, players, answers, onEndGame }) {
+  const QUESTION_SECONDS = baseSeconds(session) // teacher's choice for this game
   const [stage, setStage] = useState('intro') // intro | question | revealed | finale
   const [currentQ, setCurrentQ] = useState(-1)
   const [timer, setTimer] = useState(QUESTION_SECONDS)
@@ -164,7 +166,7 @@ export default function ComebackCourtHost({ session, questions, players, answers
   const roundMoves = players.map(p => stateOf(p)).filter(s => s.round === currentQ && moved)
   const countMoves = names => roundMoves.filter(s => names.includes(s.move)).length
 
-  const timerColor = timer > 10 ? 'var(--green)' : timer > 5 ? 'var(--yellow)' : 'var(--red)'
+  const timerColor = timerColorFor(timer, timerTotal)
 
   // ── Pieces ──
   // Each court gets wider as more students land in it

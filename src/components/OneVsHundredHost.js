@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
 import QuestionImage from './QuestionImage'
 import { secondsFor, preloadImage } from '../lib/questionImages'
+import { baseSeconds, timerColorFor } from '../lib/timing'
 
 // ═══════════════════════════════════════════════════════════════
 // 1 vs. 100 — HOST / PROJECTOR SCREEN
@@ -29,7 +30,6 @@ function seededShuffleIndices(n, seedStr) {
   return arr
 }
 
-const MOB_SECONDS = 20          // how long the Mob gets to answer
 const TOP_PRIZE = 1000000       // beat the whole Mob = $1,000,000
 const OPT_LABELS = ['A', 'B', 'C', 'D']
 const OPT_KEYS = ['option_a', 'option_b', 'option_c', 'option_d']
@@ -53,6 +53,7 @@ function potFor(eliminated, mobSize) {
 const label = { fontSize: '0.72rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.3rem' }
 
 export default function OneVsHundredHost({ session, questions, players, answers, selectedSet, fetchPlayers, kickPlayer, onEndGame }) {
+  const MOB_SECONDS = baseSeconds(session) // how long the Mob gets to answer (teacher's choice)
   const [stage, setStage] = useState('pick') // pick | intro | question | revealed | round-over
   const [hotSeatId, setHotSeatId] = useState(null)
   const [roster, setRoster] = useState([])          // Mob member ids for THIS round
@@ -376,7 +377,7 @@ export default function OneVsHundredHost({ session, questions, players, answers,
     const counts = [0, 0, 0, 0]
     mobAnswers.forEach(a => { counts[order.indexOf(a.answer_given)]++ })
     const contestantDisplay = contestantAnswer ? order.indexOf(contestantAnswer.answer_given) : -1
-    const timerColor = timer > 10 ? 'var(--green)' : timer > 5 ? 'var(--yellow)' : 'var(--red)'
+    const timerColor = timerColorFor(timer, secondsFor(q, MOB_SECONDS))
 
     return (
       <div className="screen">

@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react'
 import { supabase } from '../supabase'
 import QuestionImage from './QuestionImage'
 import { secondsFor, preloadImage } from '../lib/questionImages'
+import { baseSeconds, timerColorFor } from '../lib/timing'
 
 // ═══════════════════════════════════════════════════════════════
 // 1 vs. 100 — STUDENT CHROMEBOOK SCREEN
@@ -27,7 +28,6 @@ function seededShuffleIndices(n, seedStr) {
   return arr
 }
 
-const MOB_SECONDS = 20
 const OPT_LABELS = ['A', 'B', 'C', 'D']
 const OPT_KEYS = ['option_a', 'option_b', 'option_c', 'option_d']
 
@@ -36,6 +36,7 @@ function money(n) { return '$' + Math.round(n || 0).toLocaleString() }
 const label = { fontSize: '0.72rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.25rem' }
 
 export default function OneVsHundredStudent({ go, gameSession, player }) {
+  const MOB_SECONDS = baseSeconds(gameSession) // teacher's choice for this game
   const [session, setSession] = useState(gameSession)
   const [questions, setQuestions] = useState([])
   const [players, setPlayers] = useState([])
@@ -304,7 +305,7 @@ export default function OneVsHundredStudent({ go, gameSession, player }) {
         {!revealed && !isContestant && myStatus === 'alive' && myAnswer === null && (
           <div style={{ marginBottom: '0.75rem' }}>
             <div style={{ height: 6, borderRadius: 3, background: 'var(--surface2)', overflow: 'hidden' }}>
-              <div style={{ height: '100%', width: `${(timer / timerTotal) * 100}%`, background: timer > 10 ? 'var(--green)' : timer > 5 ? 'var(--yellow)' : 'var(--red)', transition: 'width 1s linear' }} />
+              <div style={{ height: '100%', width: `${(timer / timerTotal) * 100}%`, background: timerColorFor(timer, timerTotal), transition: 'width 1s linear' }} />
             </div>
             <p style={{ fontSize: '0.8rem', color: 'var(--muted)', marginTop: '0.25rem' }}>{timer}s to answer</p>
           </div>

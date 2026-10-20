@@ -3,8 +3,9 @@ import { supabase } from '../../supabase'
 import QuestionImage from '../QuestionImage'
 import { secondsFor, preloadImage } from '../../lib/questionImages'
 import { seededShuffleIndices } from '../../lib/shuffle'
+import { baseSeconds, timerColorFor } from '../../lib/timing'
 import {
-  COURTS, QUESTION_SECONDS, THRONE_STREAK, CLIMB_TARGET, COMEBACK_BONUS,
+  COURTS, THRONE_STREAK, CLIMB_TARGET, COMEBACK_BONUS,
   ccStateOf, previousCourt, speedPoints,
 } from '../../lib/comebackCourt'
 import { CourtIcon, ClimbDots, MiniStairs } from './CourtArt'
@@ -41,6 +42,7 @@ function resultText(s) {
 }
 
 export default function ComebackCourtStudent({ go, gameSession, player }) {
+  const QUESTION_SECONDS = baseSeconds(gameSession) // teacher's choice for this game
   const [session, setSession] = useState(gameSession)
   const [questions, setQuestions] = useState([])
   const [me, setMe] = useState(player)
@@ -245,7 +247,7 @@ export default function ComebackCourtStudent({ go, gameSession, player }) {
   }
 
   // ── QUESTION ──
-  const timerColor = timer > 10 ? 'var(--green)' : timer > 5 ? 'var(--yellow)' : 'var(--red)'
+  const timerColor = timerColorFor(timer, timerTotal)
   return (
     <div className="screen cc" style={{ maxWidth: 500, margin: '0 auto' }}>
       {banner}

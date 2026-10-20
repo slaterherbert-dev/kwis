@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react'
 import { supabase } from '../supabase'
 import QuestionImage from './QuestionImage'
 import { secondsFor, preloadImage } from '../lib/questionImages'
+import { baseSeconds, timerColorFor } from '../lib/timing'
 
 // Deterministic shuffle: same session + question always produces the same order
 // on every device, but a NEW game session gets a different order — so students
@@ -23,7 +24,6 @@ function seededShuffleIndices(n, seedStr) {
   return arr
 }
 
-const TIMER_SECONDS = 20
 
 function useTheme() {
   const [dark, setDark] = useState(() => localStorage.getItem('kwis-theme') !== 'light')
@@ -35,6 +35,7 @@ function useTheme() {
 }
 
 export default function StudentGame({ go, gameSession, player, setPlayer }) {
+  const TIMER_SECONDS = baseSeconds(gameSession) // chosen by the teacher for this game
   const [dark, setDark] = useTheme()
   const [session, setSession] = useState(gameSession)
   const [questions, setQuestions] = useState([])
@@ -200,7 +201,7 @@ export default function StudentGame({ go, gameSession, player, setPlayer }) {
   const optKeys = optOrder.map(i => optKeysOriginal[i])
   const correctDisplayIndex = q ? optOrder.indexOf(q.correct_index) : -1
   const timerPct = (timer / timerTotal) * 100
-  const timerColor = timer > 10 ? 'var(--green)' : timer > 5 ? 'var(--yellow)' : 'var(--red)'
+  const timerColor = timerColorFor(timer, timerTotal)
   const circumference = 2 * Math.PI * 22
 
   // ── KICKED SCREEN ──
