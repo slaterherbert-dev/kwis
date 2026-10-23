@@ -5,7 +5,8 @@ import { useAuth } from '../contexts/AuthContext'
 const TOOLS = [
   { screen: 'host',  icon: '📺', title: 'Host a game',   desc: 'Pick a question set and game mode, get a PIN, and run it live.' },
   { screen: 'admin', icon: '📝', title: 'Question sets', desc: 'Create, edit, share, and import question sets from CSV.' },
-  { screen: 'board', icon: '🖥️', title: 'Bord',          desc: 'Your classroom display: agenda, timer, name picker, images, and more.', isNew: true },
+  { screen: 'board', icon: '🖥️', title: 'Bord',          desc: 'Your classroom display: agenda, timer, name picker, images, and more.' },
+  { screen: 'builders', icon: '🤝', title: 'Class Builders', desc: 'Projector games for community and teamwork: Would You Rather, Letter Rush, and more.', isNew: true },
 ]
 
 function greeting() {

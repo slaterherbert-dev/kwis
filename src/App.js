@@ -18,13 +18,14 @@ import './App.css'
 // Bord only downloads when a teacher opens it, so students joining
 // a game on Chromebooks never load it.
 const Board = lazy(() => import('./components/Board'))
+const Builders = lazy(() => import('./components/builders/Builders'))
 
 // Teacher-only screens — redirect to login if not authed
-const TEACHER_SCREENS = ['teacher-home', 'admin', 'host', 'board']
+const TEACHER_SCREENS = ['teacher-home', 'admin', 'host', 'board', 'builders']
 
 // Teacher screens get a web address (#home, #board, ...) so they can be
 // bookmarked and survive a refresh. Student screens never touch the address.
-const SCREEN_TO_HASH = { 'teacher-home': 'home', admin: 'sets', host: 'host', board: 'bord' }
+const SCREEN_TO_HASH = { 'teacher-home': 'home', admin: 'sets', host: 'host', board: 'bord', builders: 'builders' }
 const HASH_TO_SCREEN = {
   ...Object.fromEntries(Object.entries(SCREEN_TO_HASH).map(([s, h]) => [h, s])),
   board: 'board', // older #board bookmarks still open Bord
@@ -118,6 +119,9 @@ function AppInner() {
       {screen === 'host'         && user && <TeacherHost go={go} setGameSession={setGameSession} gameSession={gameSession} />}
       {screen === 'board'        && user && (
         <Suspense fallback={<Loading />}><Board go={go} /></Suspense>
+      )}
+      {screen === 'builders'     && user && (
+        <Suspense fallback={<Loading />}><Builders go={go} /></Suspense>
       )}
       {screen === 'student-join' && <StudentJoin go={go} setGameSession={setGameSession} setPlayer={setPlayer} />}
       {screen === 'student-lobby'&& <StudentLobby go={go} gameSession={gameSession} player={player} />}
