@@ -17,21 +17,21 @@ export const STATS = [
 export const STAT_MAX = 15
 
 export const EMPIRES = [
-  { id: 'ottoman', name: 'Ottoman Empire', color: '#3e8ef7', start: { tech: 6, open: 5, ideas: 4, econ: 7 },
+  { id: 'ottoman', name: 'Ottoman Empire', color: '#2f5d7c', start: { tech: 6, open: 5, ideas: 4, econ: 7 },
     geo: { label: 'Crossroads', note: 'Controls the land and sea routes between Asia and Europe.' } },
-  { id: 'safavid', name: 'Safavid Persia', color: '#2fbf71', start: { tech: 3, open: 4, ideas: 5, econ: 5 },
+  { id: 'safavid', name: 'Safavid Persia', color: '#2e7d6b', start: { tech: 3, open: 4, ideas: 5, econ: 5 },
     geo: { label: 'Crossroads', note: 'Sits on the Silk Road, squeezed between bigger neighbors.' } },
-  { id: 'mughal', name: 'Mughal India', color: '#ff8a3d', start: { tech: 3, open: 5, ideas: 4, econ: 8 },
+  { id: 'mughal', name: 'Mughal India', color: '#d07a1f', start: { tech: 3, open: 5, ideas: 4, econ: 8 },
     geo: { label: 'Rich river plains', note: 'Huge farming wealth; mountains guard the north.' } },
-  { id: 'china', name: 'Ming & Qing China', color: '#e8436e', start: { tech: 5, open: 4, ideas: 5, econ: 9 },
+  { id: 'china', name: 'Ming & Qing China', color: '#a8322d', start: { tech: 5, open: 4, ideas: 5, econ: 9 },
     geo: { label: 'Giant and self-sufficient', note: 'Makes almost everything it needs at home.' } },
-  { id: 'japan', name: 'Japan', color: '#9b6cff', start: { tech: 3, open: 4, ideas: 4, econ: 5 },
+  { id: 'japan', name: 'Japan', color: '#6b4c8a', start: { tech: 3, open: 4, ideas: 4, econ: 5 },
     geo: { label: 'Island', note: 'The sea makes invasion hard, and closing the doors easy.' } },
-  { id: 'russia', name: 'Russia', color: '#2aaba3', start: { tech: 2, open: 3, ideas: 3, econ: 3 },
+  { id: 'russia', name: 'Russia', color: '#5c6b2e', start: { tech: 2, open: 3, ideas: 3, econ: 3 },
     geo: { label: 'Vast and cold', note: 'Hard to conquer, hard to reach the sea.' } },
-  { id: 'iberia', name: 'Spain & Portugal', color: '#c9a227', start: { tech: 4, open: 5, ideas: 4, econ: 4 },
+  { id: 'iberia', name: 'Spain & Portugal', color: '#b8892b', start: { tech: 4, open: 5, ideas: 4, econ: 4 },
     geo: { label: 'Atlantic coast', note: 'No effect yet. Watch what happens in Era 4.' } },
-  { id: 'northsea', name: 'England & the Netherlands', color: '#6c63ff', start: { tech: 3, open: 5, ideas: 4, econ: 3 },
+  { id: 'northsea', name: 'England & the Netherlands', color: '#7a3b5c', start: { tech: 3, open: 5, ideas: 4, econ: 3 },
     geo: { label: 'Atlantic coast', note: 'No effect yet. Watch what happens in Era 4.' } },
 ]
 
