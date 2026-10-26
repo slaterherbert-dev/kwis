@@ -3,6 +3,7 @@ import WouldYouRather from './WouldYouRather'
 import StandUpIf from './StandUpIf'
 import LetterRush from './LetterRush'
 import BackToTheBoard from './BackToTheBoard'
+import LongGame from './LongGame'
 import { useSaved, DEFAULT_TEAMS } from './common'
 import './Builders.css'
 
@@ -17,6 +18,7 @@ const GAMES = [
   { id: 'would-you-rather', group: 'class', icon: '↔️', title: 'Would You Rather', desc: 'Two choices, two sides of the room. Students walk to their pick and defend it.', Comp: WouldYouRather },
   { id: 'stand-up-if', group: 'class', icon: '🧍', title: 'Stand Up If…', desc: 'Students stand when a prompt fits them and see what they have in common.', Comp: StandUpIf },
   { id: 'letter-rush', group: 'team', icon: '🔤', title: 'Letter Rush', desc: 'One letter, eight categories. Only answers no other team wrote score.', Comp: LetterRush },
+  { id: 'long-game', group: 'history', icon: '🏰', title: 'The Long Game, 1450–1800', desc: 'Each table plays an empire for the whole unit. Make the real choices, see how history went, and watch power shift.', Comp: LongGame },
   { id: 'back-to-the-board', group: 'team', icon: '🙈', title: 'Back to the Board', desc: 'One teammate faces away; the team gives clues for the word on screen.', Comp: BackToTheBoard },
 ]
 
@@ -99,6 +101,7 @@ export default function Builders({ go }) {
       <p className="cb-intro">Everything runs on your projector. Students don’t need to join or log in.</p>
       {section('class', 'Class builders', 'Whole class, low stakes. Great for the first week, Mondays, or after a break.')}
       {section('team', 'Team builders', 'Small groups compete. Bring scratch paper. The scoreboard carries over between games.')}
+      {section('history', 'History games', 'Unit-long simulations. Progress is saved on this computer between class days.')}
     </div>
   )
 }
