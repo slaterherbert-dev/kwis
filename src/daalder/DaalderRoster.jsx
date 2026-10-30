@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "../supabaseClient"; // adjust to your Kwis client path
+import { supabase } from "../supabase"; // adjust to your Kwis client path
 import "./daalder.css";
 
 // Teacher screen: pick or create a class, add students by nickname,
