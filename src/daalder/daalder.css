@@ -1,0 +1,174 @@
+/* Daalder — Delft-tile blue and coin gold. Fonts inherit from Kwis. */
+.dl {
+  --dl-delft: #1d3f8f;
+  --dl-delft-deep: #13285c;
+  --dl-tile: #e9eef9;
+  --dl-gold: #c99a2e;
+  --dl-gold-soft: #f6e7bf;
+  --dl-ink: #1a2238;
+  --dl-muted: #5b6480;
+  --dl-surface: #ffffff;
+  --dl-bg: #f5f7fc;
+  --dl-danger: #b3261e;
+  color: var(--dl-ink);
+  font-family: inherit;
+  box-sizing: border-box;
+}
+.dl *, .dl *::before, .dl *::after { box-sizing: inherit; }
+
+@media (prefers-color-scheme: dark) {
+  .dl {
+    --dl-tile: #1f2a47;
+    --dl-ink: #eef1f8;
+    --dl-muted: #a7b0c8;
+    --dl-surface: #18203a;
+    --dl-bg: #0f1528;
+    --dl-gold-soft: #3d3215;
+  }
+}
+
+.dl-wordmark {
+  font-weight: 800;
+  font-size: 1.75rem;
+  letter-spacing: -0.01em;
+  color: var(--dl-delft);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+@media (prefers-color-scheme: dark) { .dl-wordmark { color: #9fb6f0; } }
+
+/* The coin mark: a gold disc with a milled edge */
+.dl-coin {
+  width: 1.6em; height: 1.6em; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #f3d27a, var(--dl-gold) 60%, #9a7320);
+  box-shadow: 0 0 0 2px var(--dl-gold), 0 0 0 4px #9a7320 inset;
+  display: inline-block; flex: none;
+}
+
+/* ---------- Student login ---------- */
+.dl-login-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background:
+    linear-gradient(45deg, var(--dl-tile) 25%, transparent 25%) 0 0 / 48px 48px,
+    linear-gradient(-45deg, var(--dl-tile) 25%, transparent 25%) 0 0 / 48px 48px,
+    var(--dl-bg);
+}
+.dl-login {
+  width: 100%;
+  max-width: 24rem;
+  background: var(--dl-surface);
+  border: 2px solid var(--dl-delft);
+  border-radius: 14px;
+  padding: 2rem 1.75rem;
+}
+.dl-login p.dl-sub { margin: 0.25rem 0 1.5rem; color: var(--dl-muted); }
+
+.dl-field { display: block; margin-bottom: 1rem; }
+.dl-field span { display: block; font-weight: 600; margin-bottom: 0.3rem; }
+.dl-field small { font-weight: 400; color: var(--dl-muted); }
+.dl-input, .dl-textarea {
+  width: 100%;
+  font: inherit;
+  font-size: 1.1rem;
+  padding: 0.65rem 0.75rem;
+  border: 2px solid #c5cde0;
+  border-radius: 8px;
+  background: var(--dl-surface);
+  color: var(--dl-ink);
+}
+.dl-input:focus-visible, .dl-textarea:focus-visible, .dl-btn:focus-visible {
+  outline: 3px solid var(--dl-gold);
+  outline-offset: 2px;
+  border-color: var(--dl-delft);
+}
+.dl-input.code { text-transform: uppercase; letter-spacing: 0.15em; }
+
+.dl-btn {
+  font: inherit;
+  font-weight: 700;
+  border: 2px solid var(--dl-delft);
+  border-radius: 8px;
+  padding: 0.6rem 1rem;
+  cursor: pointer;
+  background: var(--dl-delft);
+  color: #fff;
+}
+.dl-btn:hover { background: var(--dl-delft-deep); }
+.dl-btn:disabled { opacity: 0.6; cursor: wait; }
+.dl-btn.wide { width: 100%; font-size: 1.1rem; padding: 0.8rem; }
+.dl-btn.quiet { background: transparent; color: var(--dl-delft); }
+.dl-btn.quiet:hover { background: var(--dl-tile); }
+.dl-btn.danger { background: transparent; color: var(--dl-danger); border-color: var(--dl-danger); }
+.dl-btn.small { padding: 0.3rem 0.6rem; font-size: 0.9rem; }
+@media (prefers-color-scheme: dark) {
+  .dl-btn.quiet { color: #9fb6f0; border-color: #9fb6f0; }
+}
+
+.dl-error {
+  background: #fdecea;
+  color: var(--dl-danger);
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+  margin-bottom: 1rem;
+}
+
+/* ---------- Teacher roster ---------- */
+.dl-roster { max-width: 56rem; margin: 0 auto; padding: 1.5rem; }
+.dl-roster header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+.dl-row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+.dl-panel {
+  background: var(--dl-surface);
+  border: 1px solid #d6dcea;
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+.dl-panel h2 { margin: 0 0 0.75rem; font-size: 1.15rem; }
+.dl-code-chip {
+  background: var(--dl-gold-soft);
+  border: 2px solid var(--dl-gold);
+  border-radius: 8px;
+  padding: 0.2rem 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+}
+.dl-table-wrap { overflow-x: auto; }
+.dl-table { width: 100%; border-collapse: collapse; }
+.dl-table th, .dl-table td { text-align: left; padding: 0.55rem 0.5rem; border-bottom: 1px solid #e3e7f1; }
+.dl-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.dl-muted { color: var(--dl-muted); }
+.dl-note { color: var(--dl-muted); font-size: 0.95rem; margin: 0.5rem 0 0; }
+
+/* ---------- Login cards ---------- */
+.dl-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+.dl-card {
+  border: 2px dashed var(--dl-delft);
+  border-radius: 10px;
+  padding: 0.9rem 1rem;
+  background: var(--dl-surface);
+  break-inside: avoid;
+}
+.dl-card .dl-wordmark { font-size: 1.1rem; margin-bottom: 0.5rem; }
+.dl-card dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 0.15rem 0.6rem; }
+.dl-card dt { color: var(--dl-muted); }
+.dl-card dd { margin: 0; font-weight: 700; word-break: break-word; }
+.dl-card .pw { font-size: 1.15rem; color: var(--dl-delft); }
+.dl-card .foot { margin-top: 0.5rem; font-size: 0.8rem; color: var(--dl-muted); }
+
+@media print {
+  body * { visibility: hidden; }
+  .dl-print-area, .dl-print-area * { visibility: visible; }
+  .dl-print-area { position: absolute; inset: 0 auto auto 0; width: 100%; }
+  .dl-no-print { display: none !important; }
+  .dl-cards { grid-template-columns: repeat(3, 1fr); }
+  .dl-card { background: #fff; color: #000; }
+}
