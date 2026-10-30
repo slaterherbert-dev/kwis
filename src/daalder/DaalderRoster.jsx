@@ -49,7 +49,6 @@ export default function DaalderRoster({ go, loginUrl = `${window.location.origin
 
   useEffect(() => {
     loadClasses();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -57,7 +56,6 @@ export default function DaalderRoster({ go, loginUrl = `${window.location.origin
     setCards([]);
     setProblems([]);
     setError("");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [classId]);
 
   async function callRoster(body) {
