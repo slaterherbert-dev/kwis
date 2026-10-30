@@ -1,33 +1,91 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../supabase";
 import "./daalder.css";
 
-// First version of the student screen: proves the login works and shows
-// the student's own balance and recent history. The full "card" design
-// replaces this next.
+const fmt = (n) =>
+  Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+// How each kind of transaction is labeled for students (English, then Spanish).
+const KIND_LABEL = {
+  award: "Award / Premio",
+  salary: "Paycheck / Pago",
+  purchase: "Purchase / Compra",
+  game: "Kwis game / Juego de Kwis",
+  desk_buy: "Desk / Escritorio",
+  adjustment: "Correction / Corrección",
+};
+
 export default function DaalderStudentHome({ onSignOut }) {
   const [me, setMe] = useState(null);
   const [history, setHistory] = useState([]);
+  const [assets, setAssets] = useState(0);
+  const [deskCount, setDeskCount] = useState(0);
+  const [jobs, setJobs] = useState([]);
+  const [arrival, setArrival] = useState(null); // newest transaction, shown briefly
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    (async () => {
-      // RLS only ever returns this student's own row and own transactions.
-      const { data, error } = await supabase
-        .from("daalder_students")
-        .select("id, nickname, balance, daalder_classes(name, currency_name)")
-        .single();
-      if (error) return setError("Couldn't load your account. Try signing in again.");
-      setMe(data);
+  // RLS only ever returns this student's own row, transactions, and jobs.
+  const load = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("daalder_students")
+      .select("id, nickname, balance, class_id, daalder_classes(name, currency_name)")
+      .single();
+    if (error) return setError("Couldn't load your account. Try signing in again.");
+    setError("");
+    setMe(data);
 
-      const { data: tx } = await supabase
+    const [tx, desks, jobRows] = await Promise.all([
+      supabase
         .from("daalder_transactions")
         .select("id, amount, kind, note, created_at")
         .order("created_at", { ascending: false })
-        .limit(10);
-      setHistory(tx ?? []);
-    })();
+        .limit(12),
+      supabase.rpc("daalder_desk_map", { p_class: data.class_id }),
+      supabase.from("daalder_job_assignments").select("job_id, daalder_jobs(title, salary)"),
+    ]);
+
+    setHistory(tx.data ?? []);
+    const mine = (desks.data ?? []).filter((d) => d.is_mine);
+    setAssets(mine.reduce((sum, d) => sum + Number(d.price), 0));
+    setDeskCount(mine.length);
+    setJobs((jobRows.data ?? []).map((j) => j.daalder_jobs).filter(Boolean));
   }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  // Live updates: when the teacher gives or takes Munt, the card updates by itself.
+  useEffect(() => {
+    if (!me?.id) return;
+    const channel = supabase
+      .channel(`daalder-student-${me.id}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "daalder_transactions", filter: `student_id=eq.${me.id}` },
+        (payload) => {
+          setArrival({ ...payload.new, key: Date.now() });
+          load();
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [me?.id, load]);
+
+  // Backup for school networks that block live connections: refresh when the tab is reopened.
+  useEffect(() => {
+    const onFocus = () => load();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [load]);
+
+  useEffect(() => {
+    if (!arrival) return;
+    const t = setTimeout(() => setArrival(null), 6000);
+    return () => clearTimeout(t);
+  }, [arrival]);
 
   async function signOut() {
     await supabase.auth.signOut();
@@ -35,53 +93,111 @@ export default function DaalderStudentHome({ onSignOut }) {
   }
 
   const currency = me?.daalder_classes?.currency_name ?? "Munt";
+  const savings = Number(me?.balance ?? 0);
+  const netWorth = savings + assets;
 
   return (
-    <div className="dl dl-login-page">
-      <div className="dl-login" style={{ maxWidth: "28rem" }}>
-        <div className="dl-row" style={{ justifyContent: "space-between" }}>
+    <div className="dl dl-page">
+      <div className="dl-student">
+        <div className="dl-student-top">
           <div className="dl-wordmark">
             <span className="dl-coin" aria-hidden="true" />
             Daalder
           </div>
-          <button className="dl-btn quiet small" onClick={signOut}>
-            Sign out
-          </button>
+          <button className="dl-btn quiet small" onClick={signOut}>Sign out</button>
         </div>
 
-        {error && <div className="dl-error" style={{ marginTop: "1rem" }}>{error}</div>}
+        {error && <div className="dl-error" role="alert">{error}</div>}
 
         {me && (
           <>
-            <p className="dl-sub">
-              {me.nickname}, {me.daalder_classes?.name}
-            </p>
-            <div style={{ fontSize: "2.75rem", fontWeight: 800, color: "var(--dl-delft)", lineHeight: 1 }}>
-              {Number(me.balance).toFixed(2)}
-            </div>
-            <div className="dl-muted" style={{ marginBottom: "1.5rem" }}>{currency} in savings</div>
+            <section className="dl-bank" aria-label="Your Daalder card">
+              <div className="dl-bank-top">
+                <div className="dl-wordmark">
+                  <span className="dl-coin" aria-hidden="true" />
+                  Daalder
+                </div>
+                <div className="dl-bank-class">{me.daalder_classes?.name}</div>
+              </div>
 
-            <h2 style={{ fontSize: "1.05rem", margin: "0 0 0.5rem" }}>Recent activity</h2>
-            {history.length === 0 ? (
-              <p className="dl-muted">Nothing yet. Munt you earn will show up here.</p>
-            ) : (
-              <table className="dl-table">
-                <tbody>
-                  {history.map((t) => (
-                    <tr key={t.id}>
-                      <td>{t.note || t.kind}</td>
-                      <td
-                        className="num"
-                        style={{ color: t.amount < 0 ? "var(--dl-danger)" : "inherit", fontWeight: 700 }}
-                      >
-                        {t.amount > 0 ? "+" : ""}
-                        {Number(t.amount).toFixed(2)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div>
+                <div className="dl-bank-label">
+                  Net worth<small>Patrimonio</small>
+                </div>
+                <span key={arrival?.key} className={`dl-bank-big${arrival ? " dl-flash" : ""}`}>
+                  {fmt(netWorth)}
+                </span>
+                <div className="dl-bank-label">{currency}</div>
+              </div>
+
+              <div className="dl-bank-bottom">
+                <div className="dl-bank-name">{me.nickname}</div>
+                <div className="dl-bank-stats">
+                  <div>
+                    <span className="dl-bank-label">Savings<small>Ahorros</small></span>
+                    <strong>{fmt(savings)}</strong>
+                  </div>
+                  <div>
+                    <span className="dl-bank-label">Assets<small>Bienes</small></span>
+                    <strong>{fmt(assets)}</strong>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {arrival && (
+              <p className={`dl-arrival${arrival.amount < 0 ? " neg" : ""}`} role="status">
+                {arrival.amount > 0 ? "+" : "−"}
+                {fmt(Math.abs(arrival.amount))} {currency}
+                {arrival.note ? `: ${arrival.note}` : ""}
+              </p>
             )}
+
+            <section className="dl-panel" style={{ marginTop: "1.25rem" }}>
+              <h2>My job<small>Mi trabajo</small></h2>
+              {jobs.length === 0 ? (
+                <p className="dl-muted" style={{ margin: 0 }}>No job yet. Ask your teacher which jobs are open.</p>
+              ) : (
+                <ul className="dl-activity">
+                  {jobs.map((j) => (
+                    <li key={j.title}>
+                      <span className="what">{j.title}</span>
+                      <span className="amt pos">{fmt(j.salary)} per payday</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {deskCount > 0 && (
+                <p className="dl-note">
+                  You own {deskCount} desk{deskCount > 1 ? "s" : ""}, counted in your assets.
+                </p>
+              )}
+            </section>
+
+            <section className="dl-panel">
+              <h2>Recent activity<small>Actividad reciente</small></h2>
+              {history.length === 0 ? (
+                <p className="dl-muted" style={{ margin: 0 }}>Nothing yet. Munt you earn will show up here.</p>
+              ) : (
+                <ul className="dl-activity">
+                  {history.map((t) => (
+                    <li key={t.id}>
+                      <span className="what">
+                        {t.note || KIND_LABEL[t.kind]}
+                        <span className="kind">
+                          {KIND_LABEL[t.kind]} ·{" "}
+                          {new Date(t.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                        </span>
+                      </span>
+                      <span className={`amt ${t.amount < 0 ? "neg" : "pos"}`}>
+                        {t.amount > 0 ? "+" : "−"}
+                        {fmt(Math.abs(t.amount))}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
           </>
         )}
       </div>
