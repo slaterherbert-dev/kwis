@@ -323,3 +323,48 @@
   .dl-cards { grid-template-columns: repeat(3, 1fr); }
   .dl-card { background: #fff; color: #000; }
 }
+
+/* ---------- Jobs & payday (teacher) ---------- */
+.dl-notice {
+  background: var(--dl-gold-soft);
+  border: 2px solid var(--dl-gold);
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+  margin-bottom: 1rem;
+  font-weight: 600;
+}
+.dl-payrun {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 1rem; flex-wrap: wrap;
+  border: 2px solid var(--dl-gold);
+}
+.dl-payrun h2 { margin-bottom: 0.3rem; }
+.dl-payrun p { margin: 0 0 0.2rem; }
+.dl-payrun .dl-btn { font-size: 1.1rem; padding: 0.7rem 1.5rem; }
+.dl-payday-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0 1rem;
+  max-width: 28rem;
+}
+.dl-check { display: flex; gap: 0.6rem; align-items: center; font-weight: 600; cursor: pointer; }
+.dl-check input { width: 1.25rem; height: 1.25rem; accent-color: var(--dl-delft); flex: none; }
+.dl-subhead { font-size: 1rem; margin: 0.25rem 0 0.6rem; }
+.dl-jobs { list-style: none; margin: 0 0 1.25rem; padding: 0; }
+.dl-job { padding: 0.9rem 0; border-bottom: 1px solid var(--dl-line); }
+.dl-job:first-child { padding-top: 0.25rem; }
+.dl-job-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; flex-wrap: wrap; }
+.dl-job-head strong { display: block; font-size: 1.05rem; }
+.dl-job-pay { color: var(--dl-good); font-weight: 700; font-variant-numeric: tabular-nums; }
+.dl-holders { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.5rem; }
+.dl-holder {
+  background: var(--dl-tile);
+  border-radius: 999px;
+  padding: 0.15rem 0.7rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.dl-assign { margin-top: 0.75rem; }
+.dl-job-add { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.dl-job-add .dl-input { width: 7rem; }
+.dl-job-add .dl-input.title { width: auto; flex: 1 1 14rem; }

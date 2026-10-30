@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../supabase";
 import DaalderAward from "./DaalderAward";
+import DaalderJobs from "./DaalderJobs";
 import "./daalder.css";
 
-// Teacher area for Daalder: pick a class, then Award (give/take Munt)
-// or Students (add logins, reset passwords, print cards).
+// Teacher area for Daalder: pick a class, then Award (give Munt),
+// Jobs (base pay, jobs, payday), or Students (add logins, reset passwords, print cards).
 // Passwords are never stored in readable form, so a card can only be
 // printed right after creating or resetting a login.
 export default function DaalderRoster({ go, loginUrl = `${window.location.origin}/#daalder` }) {
@@ -27,7 +28,7 @@ export default function DaalderRoster({ go, loginUrl = `${window.location.origin
   async function loadClasses(selectId) {
     const { data, error } = await supabase
       .from("daalder_classes")
-      .select("id, name, class_code, currency_name")
+      .select("id, name, class_code, currency_name, base_pay, payday_dow, auto_payday, last_paid_week")
       .order("created_at");
     setClassesLoaded(true);
     if (error) return setError(error.message);
@@ -204,6 +205,9 @@ export default function DaalderRoster({ go, loginUrl = `${window.location.origin
               <button className="dl-tab" role="tab" aria-selected={tab === "award"} onClick={() => setTab("award")}>
                 Award
               </button>
+              <button className="dl-tab" role="tab" aria-selected={tab === "jobs"} onClick={() => setTab("jobs")}>
+                Jobs &amp; payday
+              </button>
               <button className="dl-tab" role="tab" aria-selected={tab === "students"} onClick={() => setTab("students")}>
                 Students <span className="dl-muted">({students.length})</span>
               </button>
@@ -216,6 +220,20 @@ export default function DaalderRoster({ go, loginUrl = `${window.location.origin
                   currency={currency}
                   onChanged={() => loadStudents()}
                   onAddStudents={() => setTab("students")}
+                />
+              </div>
+            )}
+
+            {tab === "jobs" && (
+              <div className="dl-no-print">
+                <DaalderJobs
+                  classInfo={current}
+                  students={students}
+                  currency={currency}
+                  onChanged={() => {
+                    loadStudents();
+                    loadClasses(classId);
+                  }}
                 />
               </div>
             )}

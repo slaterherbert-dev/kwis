@@ -15,6 +15,15 @@ const KIND_LABEL = {
   adjustment: "Correction / Corrección",
 };
 
+// Payday names (1 = Monday ... 5 = Friday), English then Spanish.
+const PAYDAY = {
+  1: "Monday / lunes",
+  2: "Tuesday / martes",
+  3: "Wednesday / miércoles",
+  4: "Thursday / jueves",
+  5: "Friday / viernes",
+};
+
 export default function DaalderStudentHome({ onSignOut }) {
   const [me, setMe] = useState(null);
   const [history, setHistory] = useState([]);
@@ -28,7 +37,7 @@ export default function DaalderStudentHome({ onSignOut }) {
   const load = useCallback(async () => {
     const { data, error } = await supabase
       .from("daalder_students")
-      .select("id, nickname, balance, class_id, daalder_classes(name, currency_name)")
+      .select("id, nickname, balance, class_id, daalder_classes(name, currency_name, base_pay, payday_dow, auto_payday)")
       .single();
     if (error) return setError("Couldn't load your account. Try signing in again.");
     setError("");
@@ -95,6 +104,9 @@ export default function DaalderStudentHome({ onSignOut }) {
   const currency = me?.daalder_classes?.currency_name ?? "Munt";
   const savings = Number(me?.balance ?? 0);
   const netWorth = savings + assets;
+  const basePay = Number(me?.daalder_classes?.base_pay ?? 0);
+  const autoPayday = !!me?.daalder_classes?.auto_payday;
+  const paydayName = PAYDAY[me?.daalder_classes?.payday_dow];
 
   return (
     <div className="dl dl-page">
@@ -155,10 +167,16 @@ export default function DaalderStudentHome({ onSignOut }) {
 
             <section className="dl-panel" style={{ marginTop: "1.25rem" }}>
               <h2>My job<small>Mi trabajo</small></h2>
-              {jobs.length === 0 ? (
-                <p className="dl-muted" style={{ margin: 0 }}>No job yet. Ask your teacher which jobs are open.</p>
-              ) : (
+              {(basePay > 0 || jobs.length > 0) && (
                 <ul className="dl-activity">
+                  {basePay > 0 && (
+                    <li>
+                      <span className="what">
+                        Base pay<span className="kind">Pago base · everyone gets this</span>
+                      </span>
+                      <span className="amt pos">{fmt(basePay)} per payday</span>
+                    </li>
+                  )}
                   {jobs.map((j) => (
                     <li key={j.title}>
                       <span className="what">{j.title}</span>
@@ -166,6 +184,14 @@ export default function DaalderStudentHome({ onSignOut }) {
                     </li>
                   ))}
                 </ul>
+              )}
+              {jobs.length === 0 && (
+                <p className="dl-muted" style={{ margin: basePay > 0 ? "0.6rem 0 0" : 0 }}>
+                  No job yet. Ask your teacher which jobs are open.
+                </p>
+              )}
+              {autoPayday && paydayName && (
+                <p className="dl-note">Payday · Día de pago: every {paydayName}</p>
               )}
               {deskCount > 0 && (
                 <p className="dl-note">
