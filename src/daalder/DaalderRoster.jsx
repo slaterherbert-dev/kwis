@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
-import { supabase } from "../supabase"; // adjust to your Kwis client path
+import { supabase } from "../supabase";
 import "./daalder.css";
 
 // Teacher screen: pick or create a class, add students by nickname,
 // reset passwords, remove students, and print login cards.
 // Passwords are never stored in readable form, so a card can only be
 // printed right after creating or resetting a login.
-export default function DaalderRoster({ loginUrl = `${window.location.origin}/daalder` }) {
+export default function DaalderRoster({ go, loginUrl = `${window.location.origin}/#daalder` }) {
   const [classes, setClasses] = useState([]);
   const [classId, setClassId] = useState("");
   const [students, setStudents] = useState([]);
@@ -94,7 +94,7 @@ export default function DaalderRoster({ loginUrl = `${window.location.origin}/da
   }
 
   async function resetPassword(s) {
-    if (!confirm(`Make a new password for ${s.nickname}? Their old one will stop working.`)) return;
+    if (!window.confirm(`Make a new password for ${s.nickname}? Their old one will stop working.`)) return;
     setBusy(true);
     setError("");
     try {
@@ -109,7 +109,7 @@ export default function DaalderRoster({ loginUrl = `${window.location.origin}/da
   }
 
   async function removeStudent(s) {
-    if (!confirm(`Remove ${s.nickname}? This deletes their login, Munt, and history.`)) return;
+    if (!window.confirm(`Remove ${s.nickname}? This deletes their login, Munt, and history.`)) return;
     setBusy(true);
     setError("");
     try {
@@ -130,6 +130,11 @@ export default function DaalderRoster({ loginUrl = `${window.location.origin}/da
           Daalder roster
         </div>
         <div className="dl-row">
+          {go && (
+            <button className="dl-btn quiet small" onClick={() => go("teacher-home")}>
+              Back to Kwis
+            </button>
+          )}
           {classes.length > 0 && (
             <select
               className="dl-input"

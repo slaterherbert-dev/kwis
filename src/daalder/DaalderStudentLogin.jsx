@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { supabase } from "../supabase"; // adjust to your Kwis client path
+import { supabase } from "../supabase";
 import "./daalder.css";
 
 // Student sign-in: class code + nickname + password.
