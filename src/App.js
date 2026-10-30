@@ -22,7 +22,7 @@ import './App.css'
 const Board = lazy(() => import('./components/Board'))
 const Builders = lazy(() => import('./components/builders/Builders'))
 const DaalderRoster = lazy(() => import('./daalder/DaalderRoster'))
-
+const DaalderTeacherLogin = lazy(() => import('./daalder/DaalderTeacherLogin'))
 // Teacher-only screens — redirect to login if not authed
 const TEACHER_SCREENS = ['teacher-home', 'admin', 'host', 'board', 'builders', 'daalder-roster']
 
@@ -136,7 +136,12 @@ function AppInner() {
   return (
     <div className="app">
       {screen === 'landing'      && <Landing go={go} />}
-      {screen === 'login'        && <LoginScreen go={go} />}
+      {screen === 'login' && afterLogin !== 'daalder-roster' && <LoginScreen go={go} />}
+      {screen === 'login' && afterLogin === 'daalder-roster' && (
+      <Suspense fallback={<Loading />}>
+      <DaalderTeacherLogin onStudentPage={() => { setAfterLogin(null); show('daalder-login') }} />
+      </Suspense>
+      )}
       {screen === 'teacher-home' && teacher && <TeacherHome go={go} />}
       {screen === 'admin'        && teacher && <TeacherAdmin go={go} />}
       {screen === 'host'         && teacher && <TeacherHost go={go} setGameSession={setGameSession} gameSession={gameSession} />}
