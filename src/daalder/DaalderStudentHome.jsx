@@ -13,6 +13,14 @@ const KIND_LABEL = {
   game: "Kwis game / Juego de Kwis",
   desk_buy: "Desk / Escritorio",
   adjustment: "Correction / Corrección",
+  refund: "Refund / Reembolso",
+};
+
+// Friendlier versions of the database's buying errors.
+const BUY_ERRORS = {
+  "Not enough Munt": "Not enough Munt yet. / Todavía no tienes suficiente.",
+  "Sold out": "Sold out. / Agotado.",
+  "Item not available": "That item isn't in the shop anymore. / Ya no está en la tienda.",
 };
 
 // Payday names (1 = Monday ... 5 = Friday), English then Spanish.
@@ -32,6 +40,10 @@ export default function DaalderStudentHome({ onSignOut }) {
   const [jobs, setJobs] = useState([]);
   const [arrival, setArrival] = useState(null); // newest transaction, shown briefly
   const [error, setError] = useState("");
+  const [shop, setShop] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [buying, setBuying] = useState(null); // item id being bought
+  const [shopError, setShopError] = useState("");
 
   // RLS only ever returns this student's own row, transactions, and jobs.
   const load = useCallback(async () => {
@@ -43,7 +55,7 @@ export default function DaalderStudentHome({ onSignOut }) {
     setError("");
     setMe(data);
 
-    const [tx, desks, jobRows] = await Promise.all([
+    const [tx, desks, jobRows, items, pending] = await Promise.all([
       supabase
         .from("daalder_transactions")
         .select("id, amount, kind, note, created_at")
@@ -51,6 +63,12 @@ export default function DaalderStudentHome({ onSignOut }) {
         .limit(12),
       supabase.rpc("daalder_desk_map", { p_class: data.class_id }),
       supabase.from("daalder_job_assignments").select("job_id, daalder_jobs(title, salary)"),
+      supabase.from("daalder_store_items").select("id, name, price, quantity").order("price").order("name"),
+      supabase
+        .from("daalder_purchases")
+        .select("id, item_name, created_at")
+        .eq("status", "pending")
+        .order("created_at", { ascending: false }),
     ]);
 
     setHistory(tx.data ?? []);
@@ -58,6 +76,8 @@ export default function DaalderStudentHome({ onSignOut }) {
     setAssets(mine.reduce((sum, d) => sum + Number(d.price), 0));
     setDeskCount(mine.length);
     setJobs((jobRows.data ?? []).map((j) => j.daalder_jobs).filter(Boolean));
+    setShop(items.data ?? []);
+    setOrders(pending.data ?? []);
   }, []);
 
   useEffect(() => {
@@ -95,6 +115,16 @@ export default function DaalderStudentHome({ onSignOut }) {
     const t = setTimeout(() => setArrival(null), 6000);
     return () => clearTimeout(t);
   }, [arrival]);
+
+  async function buy(item) {
+    setShopError("");
+    if (!window.confirm(`Buy "${item.name}" for ${fmt(item.price)} ${currency}?`)) return;
+    setBuying(item.id);
+    const { error } = await supabase.rpc("daalder_buy_item", { p_item: item.id });
+    setBuying(null);
+    if (error) setShopError(BUY_ERRORS[error.message] ?? error.message);
+    load();
+  }
 
   async function signOut() {
     await supabase.auth.signOut();
@@ -197,6 +227,57 @@ export default function DaalderStudentHome({ onSignOut }) {
                 <p className="dl-note">
                   You own {deskCount} desk{deskCount > 1 ? "s" : ""}, counted in your assets.
                 </p>
+              )}
+            </section>
+
+            <section className="dl-panel">
+              <h2>Shop<small>Tienda</small></h2>
+              {shopError && <div className="dl-error" role="alert">{shopError}</div>}
+              {shop.length === 0 ? (
+                <p className="dl-muted" style={{ margin: 0 }}>The shop is empty for now. Check back soon.</p>
+              ) : (
+                <ul className="dl-activity">
+                  {shop.map((item) => {
+                    const price = Number(item.price);
+                    const soldOut = item.quantity != null && item.quantity <= 0;
+                    return (
+                      <li key={item.id}>
+                        <span className="what">
+                          {item.name}
+                          {item.quantity != null && (
+                            <span className="kind">
+                              {soldOut ? "Sold out · Agotado" : `${item.quantity} left · Quedan ${item.quantity}`}
+                            </span>
+                          )}
+                        </span>
+                        <span className="dl-shop-buy">
+                          <span className="amt">{fmt(price)}</span>
+                          {soldOut ? null : savings >= price ? (
+                            <button
+                              className="dl-btn small"
+                              onClick={() => buy(item)}
+                              disabled={buying !== null}
+                            >
+                              {buying === item.id ? "Buying…" : "Buy · Comprar"}
+                            </button>
+                          ) : (
+                            <span className="dl-shop-short">Save {fmt(price - savings)} more</span>
+                          )}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              {orders.length > 0 && (
+                <div className="dl-waiting">
+                  <strong>Waiting for your teacher · Esperando al maestro</strong>
+                  <ul>
+                    {orders.map((o) => (
+                      <li key={o.id}>{o.item_name}</li>
+                    ))}
+                  </ul>
+                </div>
               )}
             </section>
 

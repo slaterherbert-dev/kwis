@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 import { supabase } from "../supabase";
 import DaalderAward from "./DaalderAward";
 import DaalderJobs from "./DaalderJobs";
+import DaalderStore from "./DaalderStore";
 import "./daalder.css";
 
 // Teacher area for Daalder: pick a class, then Award (give Munt),
-// Jobs (base pay, jobs, payday), or Students (add logins, reset passwords, print cards).
+// Jobs (base pay, jobs, payday), Store (items, orders), or Students (add logins, reset passwords, print cards).
 // Passwords are never stored in readable form, so a card can only be
 // printed right after creating or resetting a login.
 export default function DaalderRoster({ go, loginUrl = `${window.location.origin}/#daalder` }) {
@@ -21,6 +22,7 @@ export default function DaalderRoster({ go, loginUrl = `${window.location.origin
   const [problems, setProblems] = useState([]); // [{nickname, error}]
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [pendingOrders, setPendingOrders] = useState(0);
 
   const current = classes.find((c) => c.id === classId);
   const currency = current?.currency_name ?? "Munt";
@@ -48,9 +50,24 @@ export default function DaalderRoster({ go, loginUrl = `${window.location.origin
     setStudents(data);
   }
 
+  // Count of store orders waiting to be handed out (shown on the Store tab).
+  async function loadPending(id = classId) {
+    if (!id) return setPendingOrders(0);
+    const { count } = await supabase
+      .from("daalder_purchases")
+      .select("id", { count: "exact", head: true })
+      .eq("class_id", id)
+      .eq("status", "pending");
+    setPendingOrders(count ?? 0);
+  }
+
   useEffect(() => {
     loadClasses();
   }, []);
+
+  useEffect(() => {
+    loadPending(classId);
+  }, [classId, tab]);
 
   useEffect(() => {
     loadStudents(classId);
@@ -208,6 +225,9 @@ export default function DaalderRoster({ go, loginUrl = `${window.location.origin
               <button className="dl-tab" role="tab" aria-selected={tab === "jobs"} onClick={() => setTab("jobs")}>
                 Jobs &amp; payday
               </button>
+              <button className="dl-tab" role="tab" aria-selected={tab === "store"} onClick={() => setTab("store")}>
+                Store{pendingOrders > 0 && <span className="dl-badge">{pendingOrders}</span>}
+              </button>
               <button className="dl-tab" role="tab" aria-selected={tab === "students"} onClick={() => setTab("students")}>
                 Students <span className="dl-muted">({students.length})</span>
               </button>
@@ -233,6 +253,20 @@ export default function DaalderRoster({ go, loginUrl = `${window.location.origin
                   onChanged={() => {
                     loadStudents();
                     loadClasses(classId);
+                  }}
+                />
+              </div>
+            )}
+
+            {tab === "store" && (
+              <div className="dl-no-print">
+                <DaalderStore
+                  classId={classId}
+                  students={students}
+                  currency={currency}
+                  onChanged={() => {
+                    loadStudents();
+                    loadPending();
                   }}
                 />
               </div>

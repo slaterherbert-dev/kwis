@@ -279,7 +279,8 @@
   background: var(--dl-gold-soft);
   border: 2px solid var(--dl-gold);
 }
-.dl-arrival.neg { background: var(--dl-danger-soft); border-color: var(--dl-danger); color: var(--dl-danger); }
+/* Spending is a student's own choice, not a penalty, so it isn't shown in red here. */
+.dl-arrival.neg { background: var(--dl-tile); border-color: var(--dl-delft); color: var(--dl-ink); }
 
 .dl-activity { list-style: none; margin: 0; padding: 0; }
 .dl-activity li {
@@ -368,3 +369,41 @@
 .dl-job-add { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .dl-job-add .dl-input { width: 7rem; }
 .dl-job-add .dl-input.title { width: auto; flex: 1 1 14rem; }
+
+/* ---------- Store ---------- */
+.dl-badge {
+  display: inline-block;
+  min-width: 1.5em;
+  margin-left: 0.4rem;
+  padding: 0 0.45em;
+  border-radius: 999px;
+  background: var(--dl-gold);
+  color: var(--dl-delft-ink);
+  font-size: 0.85rem;
+  font-weight: 800;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.dl-orders { list-style: none; margin: 0; padding: 0; }
+.dl-orders li {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 0.75rem; flex-wrap: wrap;
+  padding: 0.65rem 0; border-bottom: 1px solid var(--dl-line);
+}
+.dl-orders li:last-child { border-bottom: none; }
+.dl-order-meta { display: block; font-size: 0.9rem; color: var(--dl-muted); }
+.dl-recent { margin-top: 0.75rem; }
+.dl-recent summary { cursor: pointer; font-weight: 700; color: var(--dl-muted); }
+.dl-hidden-item strong, .dl-hidden-item .dl-job-pay { opacity: 0.55; }
+
+/* Student shop */
+.dl-shop-buy { display: flex; align-items: center; gap: 0.6rem; white-space: nowrap; }
+.dl-shop-short { font-size: 0.85rem; color: var(--dl-muted); }
+.dl-waiting {
+  margin-top: 1rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 10px;
+  background: var(--dl-gold-soft);
+  border: 2px solid var(--dl-gold);
+}
+.dl-waiting ul { margin: 0.35rem 0 0; padding-left: 1.2rem; }
