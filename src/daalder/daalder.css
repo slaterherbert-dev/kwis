@@ -15,6 +15,13 @@
   --dl-danger: #b3261e;
   --dl-danger-soft: #fdecea;
   --dl-good: #1e7a46;
+  /* chart colors */
+  --dl-c-checking: #1d3f8f;
+  --dl-c-savings: #6f93e8;
+  --dl-c-cd: #c99a2e;
+  --dl-c-bond: #7a5c14;
+  --dl-c-stocks: #2c8a6e;
+  --dl-c-desks: #a0527f;
   color: var(--dl-ink);
   font-family: inherit;
   box-sizing: border-box;
@@ -32,6 +39,12 @@
     --dl-gold-soft: #3d3215;
     --dl-danger-soft: #3a1714;
     --dl-good: #5fd08f;
+    --dl-c-checking: #9fb6f0;
+    --dl-c-savings: #4f74d1;
+    --dl-c-cd: #f3d27a;
+    --dl-c-bond: #c99a2e;
+    --dl-c-stocks: #5fd0a5;
+    --dl-c-desks: #d38ab4;
   }
 }
 
@@ -88,7 +101,7 @@
   background: var(--dl-surface);
   color: var(--dl-ink);
 }
-.dl-input:focus-visible, .dl-textarea:focus-visible, .dl-btn:focus-visible, .dl-tile:focus-visible, .dl-chip:focus-visible, .dl-tab:focus-visible, .dl-cell:focus-visible, .dl-stock:focus-visible {
+.dl-input:focus-visible, .dl-textarea:focus-visible, .dl-btn:focus-visible, .dl-tile:focus-visible, .dl-chip:focus-visible, .dl-tab:focus-visible, .dl-cell:focus-visible, .dl-stock:focus-visible, .dl-seg:focus-visible {
   outline: 3px solid var(--dl-gold);
   outline-offset: 2px;
 }
@@ -493,3 +506,80 @@ button.dl-cell.empty.target { border: 2px dashed var(--dl-gold); }
 .dl-trade { padding: 0 0.15rem 1rem; }
 .dl-trade-row { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin-top: 0.6rem; }
 .dl-trade-row .dl-input { width: 7.5rem; }
+
+/* ---------- Bank (checking, savings, CDs, bonds) ---------- */
+.dl-bank-stats { flex-wrap: wrap; justify-content: flex-end; gap: 0.4rem 1.1rem; }
+.dl-accounts { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+.dl-account {
+  padding: 0.75rem 0.85rem;
+  border-radius: 10px;
+  border: 2px solid var(--dl-line);
+}
+.dl-account.savings { border-color: var(--dl-gold); background: var(--dl-gold-soft); }
+.dl-account .dl-bank-label { display: block; opacity: 1; color: var(--dl-muted); font-weight: 600; }
+.dl-account strong { display: block; font-size: 1.4rem; font-variant-numeric: tabular-nums; margin: 0.1rem 0; }
+.dl-account .dl-note { margin: 0; font-size: 0.82rem; display: block; }
+@media (max-width: 22rem) { .dl-accounts { grid-template-columns: 1fr; } }
+
+.dl-segment {
+  display: inline-flex; gap: 0; margin-top: 0.25rem;
+  border: 2px solid var(--dl-delft); border-radius: 10px; overflow: hidden;
+}
+.dl-seg {
+  font: inherit; font-weight: 700; cursor: pointer;
+  background: var(--dl-surface); color: var(--dl-delft);
+  border: none; padding: 0.45rem 0.9rem; text-align: center;
+}
+.dl-seg + .dl-seg { border-left: 2px solid var(--dl-delft); }
+.dl-seg small { display: block; font-weight: 400; font-size: 0.75rem; color: var(--dl-muted); }
+.dl-seg[aria-pressed="true"] { background: var(--dl-delft); color: #fff; }
+.dl-seg[aria-pressed="true"] small { color: var(--dl-gold-bright); }
+.dl-segment.small .dl-seg { padding: 0.25rem 0.65rem; font-size: 0.9rem; }
+@media (prefers-color-scheme: dark) {
+  .dl-segment, .dl-seg + .dl-seg { border-color: #9fb6f0; }
+  .dl-seg { color: #9fb6f0; }
+  .dl-seg[aria-pressed="true"] { background: #9fb6f0; color: var(--dl-delft-ink); }
+  .dl-seg[aria-pressed="true"] small { color: var(--dl-delft-ink); }
+}
+.dl-term[aria-pressed="true"] { background: var(--dl-good); color: #fff; }
+.dl-term[aria-pressed="true"] .amt { color: #fff; }
+.dl-preview {
+  margin: 0.75rem 0 0;
+  padding: 0.6rem 0.8rem;
+  border-left: 4px solid var(--dl-gold);
+  background: var(--dl-gold-soft);
+  border-radius: 0 8px 8px 0;
+  font-size: 0.95rem;
+}
+
+/* ---------- Portfolio charts ---------- */
+.dl-donut-wrap { display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap; justify-content: center; }
+.dl-donut { width: 11rem; height: 11rem; flex: none; }
+.dl-donut-track { stroke: var(--dl-tile); }
+.dl-donut-big { font-size: 26px; font-weight: 800; fill: var(--dl-ink); font-variant-numeric: tabular-nums; }
+.dl-donut-small { font-size: 13px; fill: var(--dl-muted); }
+.dl-legend-list { list-style: none; margin: 0; padding: 0; flex: 1 1 13rem; }
+.dl-legend-list li {
+  display: grid; grid-template-columns: auto 1fr auto auto; gap: 0.5rem; align-items: center;
+  padding: 0.3rem 0; font-size: 0.95rem;
+}
+.dl-legend-list i { width: 0.85rem; height: 0.85rem; border-radius: 3px; display: inline-block; }
+.dl-legend-list .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+.dl-line { width: 100%; height: auto; display: block; }
+.dl-line-grid { stroke: var(--dl-line); stroke-width: 1; }
+.dl-line-zero { stroke: var(--dl-muted); stroke-width: 1; stroke-dasharray: 4 4; }
+.dl-line-tick { font-size: 10px; fill: var(--dl-muted); font-variant-numeric: tabular-nums; }
+.dl-line-path { fill: none; stroke: var(--dl-c-checking); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.dl-line-area { fill: var(--dl-c-checking); opacity: 0.08; }
+.dl-line-dot { fill: var(--dl-gold); stroke: var(--dl-surface); stroke-width: 2; }
+
+.dl-bars { display: grid; gap: 0.45rem; }
+.dl-bar-row { display: grid; grid-template-columns: 3.5rem 1fr 5rem; gap: 0.5rem; align-items: center; }
+.dl-bar-label { font-weight: 800; font-size: 0.9rem; }
+.dl-bar-track { position: relative; height: 1.1rem; background: var(--dl-tile); border-radius: 4px; }
+.dl-bar-track::after { content: ""; position: absolute; left: 50%; top: -2px; bottom: -2px; width: 2px; background: var(--dl-muted); }
+.dl-bar { position: absolute; top: 0; bottom: 0; }
+.dl-bar.up { background: var(--dl-good); border-radius: 0 4px 4px 0; }
+.dl-bar.down { background: var(--dl-danger); border-radius: 4px 0 0 4px; }
+.dl-bar-val { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; font-size: 0.9rem; }

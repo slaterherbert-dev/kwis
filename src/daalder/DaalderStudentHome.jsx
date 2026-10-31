@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../supabase";
 import DaalderInvest from "./DaalderInvest";
+import DaalderBank from "./DaalderBank";
+import DaalderPortfolio from "./DaalderPortfolio";
 import "./daalder.css";
 
 const fmt = (n) =>
@@ -18,6 +20,9 @@ const KIND_LABEL = {
   desk_sell: "Desk sold / Escritorio vendido",
   invest: "Investment / Inversión",
   stock_sale: "Stock sale / Venta de acciones",
+  transfer: "Transfer / Transferencia",
+  interest: "Interest / Interés",
+  deposit: "CD or bond / CD o bono",
 };
 
 // Friendlier versions of the database's buying errors.
@@ -59,21 +64,23 @@ export default function DaalderStudentHome({ onSignOut }) {
   const [stocks, setStocks] = useState([]);
   const [holdings, setHoldings] = useState([]);
   const [stockOrders, setStockOrders] = useState([]);
+  const [deposits, setDeposits] = useState([]);
+  const [view, setView] = useState("home"); // home | portfolio
 
   // RLS only ever returns this student's own row, transactions, and jobs.
   const load = useCallback(async () => {
     const { data, error } = await supabase
       .from("daalder_students")
-      .select("id, nickname, balance, class_id, daalder_classes(name, currency_name, base_pay, payday_dow, auto_payday, desk_cols, desk_rows, stocks_enabled)")
+      .select("id, nickname, balance, savings, class_id, daalder_classes(name, currency_name, base_pay, payday_dow, auto_payday, desk_cols, desk_rows, stocks_enabled, savings_rate, cd_rate, bond_rate)")
       .single();
     if (error) return setError("Couldn't load your account. Try signing in again.");
     setError("");
     setMe(data);
 
-    const [tx, desks, jobRows, items, pending, stockRows, holdRows, orderRows] = await Promise.all([
+    const [tx, desks, jobRows, items, pending, stockRows, holdRows, orderRows, depositRows] = await Promise.all([
       supabase
         .from("daalder_transactions")
-        .select("id, amount, kind, note, created_at")
+        .select("id, amount, kind, note, created_at, account")
         .order("created_at", { ascending: false })
         .limit(12),
       supabase.rpc("daalder_desk_map", { p_class: data.class_id }),
@@ -96,6 +103,11 @@ export default function DaalderStudentHome({ onSignOut }) {
         .select("id, symbol, side, amount, shares, cost")
         .eq("status", "pending")
         .order("id"),
+      supabase
+        .from("daalder_deposits")
+        .select("id, kind, principal, rate, weeks, matures_on, coupons_paid")
+        .eq("status", "active")
+        .order("matures_on"),
     ]);
 
     setHistory(tx.data ?? []);
@@ -109,6 +121,7 @@ export default function DaalderStudentHome({ onSignOut }) {
     setStocks(stockRows.data ?? []);
     setHoldings(holdRows.data ?? []);
     setStockOrders(orderRows.data ?? []);
+    setDeposits(depositRows.data ?? []);
   }, []);
 
   useEffect(() => {
@@ -181,7 +194,9 @@ export default function DaalderStudentHome({ onSignOut }) {
   }
 
   const currency = me?.daalder_classes?.currency_name ?? "Munt";
-  const savings = Number(me?.balance ?? 0);
+  const checking = Number(me?.balance ?? 0);
+  const savingsBal = Number(me?.savings ?? 0);
+  const depositValue = deposits.reduce((sum, d) => sum + Number(d.principal), 0);
   // Investments count toward assets, including orders still waiting to go through.
   const stockPrice = (sym) => Number(stocks.find((s) => s.symbol === sym)?.price ?? 0);
   const investValue =
@@ -190,8 +205,9 @@ export default function DaalderStudentHome({ onSignOut }) {
       (sum, o) => sum + (o.side === "buy" ? Number(o.amount) : Number(o.shares) * stockPrice(o.symbol)),
       0
     );
-  const totalAssets = assets + investValue;
-  const netWorth = savings + totalAssets;
+  // Assets: desks, stocks, CDs, and bonds. Net worth adds checking and savings.
+  const totalAssets = assets + investValue + depositValue;
+  const netWorth = checking + savingsBal + totalAssets;
   const basePay = Number(me?.daalder_classes?.base_pay ?? 0);
   const autoPayday = !!me?.daalder_classes?.auto_payday;
   const paydayName = PAYDAY[me?.daalder_classes?.payday_dow];
@@ -238,8 +254,12 @@ export default function DaalderStudentHome({ onSignOut }) {
                 <div className="dl-bank-name">{me.nickname}</div>
                 <div className="dl-bank-stats">
                   <div>
+                    <span className="dl-bank-label">Checking<small>Cheques</small></span>
+                    <strong>{fmt(checking)}</strong>
+                  </div>
+                  <div>
                     <span className="dl-bank-label">Savings<small>Ahorros</small></span>
-                    <strong>{fmt(savings)}</strong>
+                    <strong>{fmt(savingsBal)}</strong>
                   </div>
                   <div>
                     <span className="dl-bank-label">Assets<small>Bienes</small></span>
@@ -257,7 +277,36 @@ export default function DaalderStudentHome({ onSignOut }) {
               </p>
             )}
 
-            <section className="dl-panel" style={{ marginTop: "1.25rem" }}>
+            {view === "portfolio" ? (
+              <DaalderPortfolio
+                checking={checking}
+                savings={savingsBal}
+                deposits={deposits}
+                stocks={stocks}
+                holdings={holdings}
+                stockOrders={stockOrders}
+                deskValue={assets}
+                currency={currency}
+                onBack={() => {
+                  setView("home");
+                  window.scrollTo(0, 0);
+                }}
+              />
+            ) : (
+            <>
+            <div className="dl-row" style={{ justifyContent: "flex-end", marginTop: "0.85rem" }}>
+              <button
+                className="dl-btn quiet small"
+                onClick={() => {
+                  setView("portfolio");
+                  window.scrollTo(0, 0);
+                }}
+              >
+                My portfolio · Mi portafolio
+              </button>
+            </div>
+
+            <section className="dl-panel" style={{ marginTop: "0.85rem" }}>
               <h2>My job<small>Mi trabajo</small></h2>
               {(basePay > 0 || jobs.length > 0) && (
                 <ul className="dl-activity">
@@ -292,6 +341,15 @@ export default function DaalderStudentHome({ onSignOut }) {
               )}
             </section>
 
+            <DaalderBank
+              checking={checking}
+              savings={savingsBal}
+              rates={me.daalder_classes ?? {}}
+              deposits={deposits}
+              currency={currency}
+              onChanged={load}
+            />
+
             <section className="dl-panel">
               <h2>Shop<small>Tienda</small></h2>
               {shopError && <div className="dl-error" role="alert">{shopError}</div>}
@@ -314,7 +372,7 @@ export default function DaalderStudentHome({ onSignOut }) {
                         </span>
                         <span className="dl-shop-buy">
                           <span className="amt">{fmt(price)}</span>
-                          {soldOut ? null : savings >= price ? (
+                          {soldOut ? null : checking >= price ? (
                             <button
                               className="dl-btn small"
                               onClick={() => buy(item)}
@@ -323,7 +381,7 @@ export default function DaalderStudentHome({ onSignOut }) {
                               {buying === item.id ? "Buying…" : "Buy · Comprar"}
                             </button>
                           ) : (
-                            <span className="dl-shop-short">Save {fmt(price - savings)} more</span>
+                            <span className="dl-shop-short">Save {fmt(price - checking)} more</span>
                           )}
                         </span>
                       </li>
@@ -348,7 +406,7 @@ export default function DaalderStudentHome({ onSignOut }) {
                 stocks={stocks}
                 holdings={holdings}
                 orders={stockOrders}
-                savings={savings}
+                savings={checking}
                 currency={currency}
                 enabled={stocksOn}
                 onChanged={load}
@@ -413,13 +471,13 @@ export default function DaalderStudentHome({ onSignOut }) {
                         <span>
                           <strong>Desk {picked.label}</strong> · {fmt(picked.price)} {currency}
                         </span>
-                        {savings >= Number(picked.price) ? (
+                        {checking >= Number(picked.price) ? (
                           <button className="dl-btn small" onClick={() => buyDesk(picked)} disabled={deskBusy}>
                             {deskBusy ? "Buying…" : "Buy · Comprar"}
                           </button>
                         ) : (
                           <span className="dl-shop-short">
-                            Save {fmt(Number(picked.price) - savings)} more · Te faltan {fmt(Number(picked.price) - savings)}
+                            Save {fmt(Number(picked.price) - checking)} more · Te faltan {fmt(Number(picked.price) - checking)}
                           </span>
                         )}
                       </>
@@ -440,7 +498,8 @@ export default function DaalderStudentHome({ onSignOut }) {
                       <span className="what">
                         {t.note || KIND_LABEL[t.kind]}
                         <span className="kind">
-                          {KIND_LABEL[t.kind]} ·{" "}
+                          {KIND_LABEL[t.kind]}
+                          {t.account === "savings" ? " · Savings / Ahorros" : ""} ·{" "}
                           {new Date(t.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                         </span>
                       </span>
@@ -453,6 +512,8 @@ export default function DaalderStudentHome({ onSignOut }) {
                 </ul>
               )}
             </section>
+            </>
+            )}
           </>
         )}
       </div>

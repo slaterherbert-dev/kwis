@@ -17,7 +17,7 @@ const tone = (n) => (n > 0.004 ? "dl-up" : n < -0.004 ? "dl-down" : "");
 
 // Friendlier versions of the database's trading errors.
 const TRADE_ERRORS = {
-  "Not enough Munt": "Not enough Munt in savings. / No tienes suficiente.",
+  "Not enough Munt": "Not enough Munt in checking. / No tienes suficiente en cheques.",
   "Not enough shares": "You don't own that many shares. / No tienes tantas acciones.",
   "The stock market is closed for this class":
     "Buying is closed right now. You can still sell. / La compra está cerrada.",
@@ -172,7 +172,8 @@ export default function DaalderInvest({ stocks, holdings, orders, savings, curre
                 <span>
                   <strong>{s.name}</strong>
                   <span className="sym">{s.symbol}</span>
-                  <span className="about">{s.about}{s.about_es && s.about_es !== s.about ? ` · ${s.about_es}` : ""}</span>                  {h && (
+                  <span className="about">{s.about}{s.about_es && s.about_es !== s.about ? ` · ${s.about_es}` : ""}</span>
+                  {h && (
                     <span className="mine">
                       You own {fmtShares(h.shares)} · {fmt(hValue)} {currency}{" "}
                       <span className={tone(hGain)}>({signed(hGain)})</span>

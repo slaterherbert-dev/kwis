@@ -5,10 +5,11 @@ import DaalderJobs from "./DaalderJobs";
 import DaalderStore from "./DaalderStore";
 import DaalderDesks from "./DaalderDesks";
 import DaalderStocks from "./DaalderStocks";
+import DaalderBankTeacher from "./DaalderBankTeacher";
 import "./daalder.css";
 
 // Teacher area for Daalder: pick a class, then Award (give Munt),
-// Jobs (base pay, jobs, payday), Store (items, orders), Desks (room map), Stocks, or Students (add logins, reset passwords, print cards).
+// Jobs (base pay, jobs, payday), Store (items, orders), Desks (room map), Bank, Stocks, or Students (add logins, reset passwords, print cards).
 // Passwords are never stored in readable form, so a card can only be
 // printed right after creating or resetting a login.
 export default function DaalderRoster({ go, loginUrl = `${window.location.origin}/#daalder` }) {
@@ -32,7 +33,7 @@ export default function DaalderRoster({ go, loginUrl = `${window.location.origin
   async function loadClasses(selectId) {
     const { data, error } = await supabase
       .from("daalder_classes")
-      .select("id, name, class_code, currency_name, base_pay, payday_dow, auto_payday, last_paid_week, desk_cols, desk_rows, stocks_enabled")
+      .select("id, name, class_code, currency_name, base_pay, payday_dow, auto_payday, last_paid_week, desk_cols, desk_rows, stocks_enabled, savings_rate, cd_rate, bond_rate")
       .order("created_at");
     setClassesLoaded(true);
     if (error) return setError(error.message);
@@ -45,7 +46,7 @@ export default function DaalderRoster({ go, loginUrl = `${window.location.origin
     if (!id) return setStudents([]);
     const { data, error } = await supabase
       .from("daalder_students")
-      .select("id, nickname, balance, user_id")
+      .select("id, nickname, balance, savings, user_id")
       .eq("class_id", id)
       .order("nickname");
     if (error) return setError(error.message);
@@ -233,6 +234,9 @@ export default function DaalderRoster({ go, loginUrl = `${window.location.origin
               <button className="dl-tab" role="tab" aria-selected={tab === "desks"} onClick={() => setTab("desks")}>
                 Desks
               </button>
+              <button className="dl-tab" role="tab" aria-selected={tab === "bank"} onClick={() => setTab("bank")}>
+                Bank
+              </button>
               <button className="dl-tab" role="tab" aria-selected={tab === "stocks"} onClick={() => setTab("stocks")}>
                 Stocks
               </button>
@@ -283,6 +287,20 @@ export default function DaalderRoster({ go, loginUrl = `${window.location.origin
             {tab === "desks" && (
               <div className="dl-no-print">
                 <DaalderDesks
+                  classInfo={current}
+                  students={students}
+                  currency={currency}
+                  onChanged={() => {
+                    loadStudents();
+                    loadClasses(classId);
+                  }}
+                />
+              </div>
+            )}
+
+            {tab === "bank" && (
+              <div className="dl-no-print">
+                <DaalderBankTeacher
                   classInfo={current}
                   students={students}
                   currency={currency}
