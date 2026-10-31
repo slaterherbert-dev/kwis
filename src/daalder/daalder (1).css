@@ -1,0 +1,466 @@
+/* Daalder: Delft-tile blue and coin gold. Fonts inherit from Kwis. */
+.dl {
+  --dl-delft: #1d3f8f;
+  --dl-delft-deep: #13285c;
+  --dl-delft-ink: #0d1d45;
+  --dl-tile: #e9eef9;
+  --dl-gold: #c99a2e;
+  --dl-gold-bright: #f3d27a;
+  --dl-gold-soft: #f6e7bf;
+  --dl-ink: #1a2238;
+  --dl-muted: #5b6480;
+  --dl-line: #d6dcea;
+  --dl-surface: #ffffff;
+  --dl-bg: #f5f7fc;
+  --dl-danger: #b3261e;
+  --dl-danger-soft: #fdecea;
+  --dl-good: #1e7a46;
+  color: var(--dl-ink);
+  font-family: inherit;
+  box-sizing: border-box;
+}
+.dl *, .dl *::before, .dl *::after { box-sizing: inherit; }
+
+@media (prefers-color-scheme: dark) {
+  .dl {
+    --dl-tile: #1a2440;
+    --dl-ink: #eef1f8;
+    --dl-muted: #a7b0c8;
+    --dl-line: #2c3758;
+    --dl-surface: #161e36;
+    --dl-bg: #0f1528;
+    --dl-gold-soft: #3d3215;
+    --dl-danger-soft: #3a1714;
+    --dl-good: #5fd08f;
+  }
+}
+
+/* Full-page background with a faint Delft tile pattern. Covers Kwis's own dark page. */
+.dl-page, .dl-login-page {
+  min-height: 100vh;
+  background:
+    linear-gradient(45deg, var(--dl-tile) 25%, transparent 25%) 0 0 / 48px 48px,
+    linear-gradient(-45deg, var(--dl-tile) 25%, transparent 25%) 0 0 / 48px 48px,
+    var(--dl-bg);
+}
+.dl-login-page { display: grid; place-items: center; padding: 1.5rem; }
+
+.dl-wordmark {
+  font-weight: 800;
+  font-size: 1.75rem;
+  letter-spacing: -0.01em;
+  color: var(--dl-delft);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+@media (prefers-color-scheme: dark) { .dl-wordmark { color: #9fb6f0; } }
+
+/* The coin mark: a gold disc with a milled edge */
+.dl-coin {
+  width: 1.6em; height: 1.6em; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, var(--dl-gold-bright), var(--dl-gold) 60%, #9a7320);
+  box-shadow: 0 0 0 2px var(--dl-gold), 0 0 0 4px #9a7320 inset;
+  display: inline-block; flex: none;
+}
+
+/* ---------- Shared controls ---------- */
+.dl-login {
+  width: 100%;
+  max-width: 24rem;
+  background: var(--dl-surface);
+  border: 2px solid var(--dl-delft);
+  border-radius: 14px;
+  padding: 2rem 1.75rem;
+}
+.dl-sub { margin: 0.25rem 0 1.5rem; color: var(--dl-muted); }
+
+.dl-field { display: block; margin-bottom: 1rem; }
+.dl-field span { display: block; font-weight: 600; margin-bottom: 0.3rem; }
+.dl-field small { font-weight: 400; color: var(--dl-muted); }
+.dl-input, .dl-textarea {
+  width: 100%;
+  font: inherit;
+  font-size: 1.05rem;
+  padding: 0.6rem 0.75rem;
+  border: 2px solid #c5cde0;
+  border-radius: 8px;
+  background: var(--dl-surface);
+  color: var(--dl-ink);
+}
+.dl-input:focus-visible, .dl-textarea:focus-visible, .dl-btn:focus-visible, .dl-tile:focus-visible, .dl-chip:focus-visible, .dl-tab:focus-visible, .dl-cell:focus-visible {
+  outline: 3px solid var(--dl-gold);
+  outline-offset: 2px;
+}
+.dl-input.code { text-transform: uppercase; letter-spacing: 0.15em; }
+
+.dl-btn {
+  font: inherit;
+  font-weight: 700;
+  border: 2px solid var(--dl-delft);
+  border-radius: 8px;
+  padding: 0.55rem 1rem;
+  cursor: pointer;
+  background: var(--dl-delft);
+  color: #fff;
+}
+.dl-btn:hover { background: var(--dl-delft-deep); }
+.dl-btn:disabled { opacity: 0.6; cursor: wait; }
+.dl-btn.wide { width: 100%; font-size: 1.1rem; padding: 0.8rem; }
+.dl-btn.quiet { background: transparent; color: var(--dl-delft); }
+.dl-btn.quiet:hover { background: var(--dl-tile); }
+.dl-btn.danger { background: transparent; color: var(--dl-danger); border-color: var(--dl-danger); }
+.dl-btn.danger:hover { background: var(--dl-danger-soft); }
+.dl-btn.small { padding: 0.3rem 0.65rem; font-size: 0.9rem; }
+@media (prefers-color-scheme: dark) {
+  .dl-btn.quiet { color: #9fb6f0; border-color: #9fb6f0; }
+}
+
+.dl-error {
+  background: var(--dl-danger-soft);
+  color: var(--dl-danger);
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+  margin-bottom: 1rem;
+}
+.dl-muted { color: var(--dl-muted); }
+.dl-note { color: var(--dl-muted); font-size: 0.95rem; margin: 0.5rem 0 0; }
+.dl-row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+
+.dl-panel {
+  background: var(--dl-surface);
+  border: 1px solid var(--dl-line);
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+.dl-panel h2 { margin: 0 0 0.75rem; font-size: 1.15rem; }
+.dl-table-wrap { overflow-x: auto; }
+.dl-table { width: 100%; border-collapse: collapse; }
+.dl-table th, .dl-table td { text-align: left; padding: 0.55rem 0.5rem; border-bottom: 1px solid var(--dl-line); }
+.dl-table td.num, .dl-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ---------- Teacher area ---------- */
+.dl-teacher { max-width: 64rem; margin: 0 auto; padding: 1.25rem 1.25rem 3rem; }
+.dl-topbar {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;
+}
+.dl-code-chip {
+  background: var(--dl-gold-soft);
+  border: 2px solid var(--dl-gold);
+  border-radius: 8px;
+  padding: 0.15rem 0.55rem;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+}
+.dl-tabs { display: flex; gap: 0.25rem; border-bottom: 2px solid var(--dl-line); margin-bottom: 1.25rem; overflow-x: auto; }
+.dl-tab {
+  font: inherit; font-weight: 700; font-size: 1.05rem;
+  background: none; border: none; cursor: pointer;
+  padding: 0.6rem 1rem; color: var(--dl-muted);
+  border-bottom: 3px solid transparent; margin-bottom: -2px;
+  white-space: nowrap;
+}
+.dl-tab[aria-selected="true"] { color: var(--dl-delft); border-bottom-color: var(--dl-gold); }
+@media (prefers-color-scheme: dark) { .dl-tab[aria-selected="true"] { color: #9fb6f0; } }
+
+/* Award: student tiles */
+.dl-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+  gap: 0.6rem;
+}
+.dl-tile {
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  background: var(--dl-surface);
+  color: var(--dl-ink);
+  border: 2px solid var(--dl-line);
+  border-radius: 10px;
+  padding: 0.7rem 0.8rem;
+  min-height: 4.25rem;
+}
+.dl-tile:hover { border-color: var(--dl-delft); }
+.dl-tile .nick { display: block; font-weight: 700; font-size: 1.05rem; overflow-wrap: anywhere; }
+.dl-tile .bal { display: block; color: var(--dl-muted); font-variant-numeric: tabular-nums; margin-top: 0.15rem; }
+.dl-tile[aria-pressed="true"] { background: var(--dl-delft); border-color: var(--dl-delft); color: #fff; }
+.dl-tile[aria-pressed="true"] .bal { color: var(--dl-gold-bright); }
+
+/* Award: reason chips */
+.dl-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.dl-chip {
+  font: inherit; font-weight: 700; cursor: pointer;
+  border-radius: 999px; padding: 0.55rem 1rem;
+  border: 2px solid var(--dl-good); color: var(--dl-good); background: var(--dl-surface);
+}
+.dl-chip:hover { background: var(--dl-tile); }
+.dl-chip:disabled { opacity: 0.45; cursor: not-allowed; }
+.dl-chip .amt { font-variant-numeric: tabular-nums; margin-left: 0.35rem; }
+
+.dl-award-bar {
+  position: sticky; bottom: 0;
+  background: var(--dl-surface);
+  border: 2px solid var(--dl-delft);
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+  margin-top: 1.25rem;
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+}
+.dl-award-bar h3 { margin: 0 0 0.6rem; font-size: 1rem; }
+.dl-award-custom { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.75rem; }
+.dl-award-custom .dl-input { width: 7rem; }
+.dl-award-custom .dl-input.note { width: auto; flex: 1 1 12rem; }
+
+.dl-toast {
+  display: flex; justify-content: space-between; align-items: center; gap: 0.75rem;
+  background: var(--dl-delft-ink); color: #fff;
+  border-radius: 10px; padding: 0.65rem 0.9rem; margin-bottom: 0.75rem;
+}
+.dl-toast .dl-btn.quiet { color: var(--dl-gold-bright); border-color: var(--dl-gold-bright); }
+.dl-toast .dl-btn.quiet:hover { background: rgba(255,255,255,0.08); }
+
+/* ---------- Student home ---------- */
+.dl-student { max-width: 30rem; margin: 0 auto; padding: 1.25rem 1rem 3rem; }
+.dl-student-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+
+/* The bank card */
+.dl-bank {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 1.586;
+  border-radius: 18px;
+  padding: 1.15rem 1.3rem;
+  color: #fff;
+  display: flex; flex-direction: column; justify-content: space-between;
+  background:
+    repeating-linear-gradient(45deg, rgba(255,255,255,0.045) 0 2px, transparent 2px 22px),
+    repeating-linear-gradient(-45deg, rgba(255,255,255,0.045) 0 2px, transparent 2px 22px),
+    linear-gradient(135deg, var(--dl-delft) 0%, var(--dl-delft-deep) 60%, var(--dl-delft-ink) 100%);
+  box-shadow: 0 14px 30px -12px rgba(13, 29, 69, 0.55);
+}
+/* gold stripe along the bottom edge, like a coin's rim */
+.dl-bank::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 6px;
+  background: linear-gradient(90deg, #9a7320, var(--dl-gold-bright), var(--dl-gold), #9a7320);
+}
+.dl-bank-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; }
+.dl-bank .dl-wordmark { color: #fff; font-size: 1.25rem; }
+.dl-bank-class { font-size: 0.9rem; opacity: 0.8; text-align: right; }
+.dl-bank-label { font-size: 0.85rem; opacity: 0.8; }
+.dl-bank-label small { opacity: 0.75; margin-left: 0.3rem; }
+.dl-bank-big {
+  display: block;
+  font-size: clamp(2.3rem, 11vw, 3.1rem);
+  font-weight: 800;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+  color: var(--dl-gold-bright);
+  border-radius: 6px;
+}
+.dl-bank-bottom { display: flex; justify-content: space-between; align-items: flex-end; gap: 0.75rem; }
+.dl-bank-stats { display: flex; gap: 1.25rem; }
+.dl-bank-stats strong { display: block; font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+.dl-bank-name { font-weight: 700; font-size: 1.05rem; letter-spacing: 0.04em; margin-bottom: 4px; }
+
+/* One deliberate motion: new Munt glows on the balance */
+@keyframes dl-glow {
+  0%   { background: rgba(243, 210, 122, 0.45); }
+  100% { background: transparent; }
+}
+.dl-bank-big.dl-flash { animation: dl-glow 1.6s ease-out; }
+@media (prefers-reduced-motion: reduce) { .dl-bank-big.dl-flash { animation: none; } }
+
+.dl-arrival {
+  margin: 0.85rem 0 0;
+  padding: 0.6rem 0.85rem;
+  border-radius: 10px;
+  font-weight: 700;
+  background: var(--dl-gold-soft);
+  border: 2px solid var(--dl-gold);
+}
+/* Spending is a student's own choice, not a penalty, so it isn't shown in red here. */
+.dl-arrival.neg { background: var(--dl-tile); border-color: var(--dl-delft); color: var(--dl-ink); }
+
+.dl-activity { list-style: none; margin: 0; padding: 0; }
+.dl-activity li {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 0.75rem;
+  padding: 0.6rem 0; border-bottom: 1px solid var(--dl-line);
+}
+.dl-activity li:last-child { border-bottom: none; }
+.dl-activity .what { font-weight: 600; }
+.dl-activity .kind { display: block; font-size: 0.85rem; color: var(--dl-muted); font-weight: 400; }
+.dl-activity .amt { font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dl-activity .amt.pos { color: var(--dl-good); }
+.dl-activity .amt.neg { color: var(--dl-danger); }
+.dl-panel h2 small { font-weight: 400; color: var(--dl-muted); font-size: 0.9rem; margin-left: 0.35rem; }
+
+/* ---------- Login cards (print) ---------- */
+.dl-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+.dl-card {
+  border: 2px dashed var(--dl-delft);
+  border-radius: 10px;
+  padding: 0.9rem 1rem;
+  background: var(--dl-surface);
+  break-inside: avoid;
+}
+.dl-card .dl-wordmark { font-size: 1.1rem; margin-bottom: 0.5rem; }
+.dl-card dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 0.15rem 0.6rem; }
+.dl-card dt { color: var(--dl-muted); }
+.dl-card dd { margin: 0; font-weight: 700; word-break: break-word; }
+.dl-card .pw { font-size: 1.15rem; color: var(--dl-delft); }
+.dl-card .foot { margin-top: 0.5rem; font-size: 0.8rem; color: var(--dl-muted); }
+
+@media print {
+  body * { visibility: hidden; }
+  .dl-print-area, .dl-print-area * { visibility: visible; }
+  .dl-print-area { position: absolute; inset: 0 auto auto 0; width: 100%; border: none; }
+  .dl-no-print { display: none !important; }
+  .dl-cards { grid-template-columns: repeat(3, 1fr); }
+  .dl-card { background: #fff; color: #000; }
+}
+
+/* ---------- Jobs & payday (teacher) ---------- */
+.dl-notice {
+  background: var(--dl-gold-soft);
+  border: 2px solid var(--dl-gold);
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+  margin-bottom: 1rem;
+  font-weight: 600;
+}
+.dl-payrun {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 1rem; flex-wrap: wrap;
+  border: 2px solid var(--dl-gold);
+}
+.dl-payrun h2 { margin-bottom: 0.3rem; }
+.dl-payrun p { margin: 0 0 0.2rem; }
+.dl-payrun .dl-btn { font-size: 1.1rem; padding: 0.7rem 1.5rem; }
+.dl-payday-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0 1rem;
+  max-width: 28rem;
+}
+.dl-check { display: flex; gap: 0.6rem; align-items: center; font-weight: 600; cursor: pointer; }
+.dl-check input { width: 1.25rem; height: 1.25rem; accent-color: var(--dl-delft); flex: none; }
+.dl-subhead { font-size: 1rem; margin: 0.25rem 0 0.6rem; }
+.dl-jobs { list-style: none; margin: 0 0 1.25rem; padding: 0; }
+.dl-job { padding: 0.9rem 0; border-bottom: 1px solid var(--dl-line); }
+.dl-job:first-child { padding-top: 0.25rem; }
+.dl-job-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; flex-wrap: wrap; }
+.dl-job-head strong { display: block; font-size: 1.05rem; }
+.dl-job-pay { color: var(--dl-good); font-weight: 700; font-variant-numeric: tabular-nums; }
+.dl-holders { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.5rem; }
+.dl-holder {
+  background: var(--dl-tile);
+  border-radius: 999px;
+  padding: 0.15rem 0.7rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.dl-assign { margin-top: 0.75rem; }
+.dl-job-add { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.dl-job-add .dl-input { width: 7rem; }
+.dl-job-add .dl-input.title { width: auto; flex: 1 1 14rem; }
+
+/* ---------- Store ---------- */
+.dl-badge {
+  display: inline-block;
+  min-width: 1.5em;
+  margin-left: 0.4rem;
+  padding: 0 0.45em;
+  border-radius: 999px;
+  background: var(--dl-gold);
+  color: var(--dl-delft-ink);
+  font-size: 0.85rem;
+  font-weight: 800;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.dl-orders { list-style: none; margin: 0; padding: 0; }
+.dl-orders li {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 0.75rem; flex-wrap: wrap;
+  padding: 0.65rem 0; border-bottom: 1px solid var(--dl-line);
+}
+.dl-orders li:last-child { border-bottom: none; }
+.dl-order-meta { display: block; font-size: 0.9rem; color: var(--dl-muted); }
+.dl-recent { margin-top: 0.75rem; }
+.dl-recent summary { cursor: pointer; font-weight: 700; color: var(--dl-muted); }
+.dl-hidden-item strong, .dl-hidden-item .dl-job-pay { opacity: 0.55; }
+
+/* Student shop */
+.dl-shop-buy { display: flex; align-items: center; gap: 0.6rem; white-space: nowrap; }
+.dl-shop-short { font-size: 0.85rem; color: var(--dl-muted); }
+.dl-waiting {
+  margin-top: 1rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 10px;
+  background: var(--dl-gold-soft);
+  border: 2px solid var(--dl-gold);
+}
+.dl-waiting ul { margin: 0.35rem 0 0; padding-left: 1.2rem; }
+
+/* ---------- Desk real estate (room map) ---------- */
+.dl-room { margin: 0 auto; }
+.dl-room-front {
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--dl-muted);
+  padding-bottom: 0.35rem;
+  margin-bottom: 0.75rem;
+  border-bottom: 5px solid var(--dl-delft);
+}
+.dl-room-grid { display: grid; gap: 0.35rem; }
+.dl-cell { aspect-ratio: 1.2; border-radius: 8px; min-width: 0; }
+.dl-cell.blank { visibility: hidden; }
+button.dl-cell.empty {
+  font: inherit; font-size: 1.1rem; cursor: pointer;
+  background: transparent; color: var(--dl-muted);
+  border: 1px dashed var(--dl-line);
+}
+button.dl-cell.empty:hover { border-color: var(--dl-delft); color: var(--dl-delft); }
+button.dl-cell.empty.target { border: 2px dashed var(--dl-gold); }
+.dl-desk {
+  font: inherit; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 0.15rem; overflow: hidden; line-height: 1.15;
+  background: var(--dl-surface); color: var(--dl-ink);
+  border: 2px solid var(--dl-delft);
+}
+.dl-desk .lbl { font-weight: 800; font-size: 0.95rem; }
+.dl-desk .sub {
+  font-size: 0.72rem; color: var(--dl-muted); max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.dl-desk.sold, .dl-desk.mine { background: var(--dl-gold-soft); border-color: var(--dl-gold); }
+.dl-desk.taken { background: var(--dl-tile); border-color: var(--dl-line); }
+.dl-desk[aria-pressed="true"] { outline: 3px solid var(--dl-delft); outline-offset: 2px; }
+@media (prefers-color-scheme: dark) { .dl-desk[aria-pressed="true"] { outline-color: #9fb6f0; } }
+
+.dl-legend { display: flex; gap: 0.4rem 1rem; flex-wrap: wrap; font-size: 0.85rem; color: var(--dl-muted); margin-top: 0.75rem; }
+.dl-legend i {
+  display: inline-block; width: 0.9rem; height: 0.9rem; border-radius: 3px;
+  vertical-align: -2px; margin-right: 0.3rem;
+  border: 2px solid var(--dl-delft); background: var(--dl-surface);
+}
+.dl-legend i.sold, .dl-legend i.mine { background: var(--dl-gold-soft); border-color: var(--dl-gold); }
+.dl-legend i.taken { background: var(--dl-tile); border-color: var(--dl-line); }
+
+.dl-desk-detail {
+  margin-top: 1rem;
+  padding: 0.85rem 1rem;
+  border: 2px solid var(--dl-delft);
+  border-radius: 10px;
+}
+.dl-desk-detail.row { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
