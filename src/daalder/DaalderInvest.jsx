@@ -172,8 +172,7 @@ export default function DaalderInvest({ stocks, holdings, orders, savings, curre
                 <span>
                   <strong>{s.name}</strong>
                   <span className="sym">{s.symbol}</span>
-                  <span className="about">{s.about}{s.about_es ? ` · ${s.about_es}` : ""}</span>
-                  {h && (
+                  <span className="about">{s.about}{s.about_es && s.about_es !== s.about ? ` · ${s.about_es}` : ""}</span>                  {h && (
                     <span className="mine">
                       You own {fmtShares(h.shares)} · {fmt(hValue)} {currency}{" "}
                       <span className={tone(hGain)}>({signed(hGain)})</span>
