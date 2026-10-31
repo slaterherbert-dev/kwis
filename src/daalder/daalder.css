@@ -88,7 +88,7 @@
   background: var(--dl-surface);
   color: var(--dl-ink);
 }
-.dl-input:focus-visible, .dl-textarea:focus-visible, .dl-btn:focus-visible, .dl-tile:focus-visible, .dl-chip:focus-visible, .dl-tab:focus-visible, .dl-cell:focus-visible {
+.dl-input:focus-visible, .dl-textarea:focus-visible, .dl-btn:focus-visible, .dl-tile:focus-visible, .dl-chip:focus-visible, .dl-tab:focus-visible, .dl-cell:focus-visible, .dl-stock:focus-visible {
   outline: 3px solid var(--dl-gold);
   outline-offset: 2px;
 }
@@ -464,3 +464,32 @@ button.dl-cell.empty.target { border: 2px dashed var(--dl-gold); }
   border-radius: 10px;
 }
 .dl-desk-detail.row { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+
+/* ---------- Stocks ---------- */
+.dl-up { color: var(--dl-good); }
+.dl-down { color: var(--dl-danger); }
+.dl-invest-sum {
+  display: flex; justify-content: space-between; align-items: flex-end; gap: 1rem; flex-wrap: wrap;
+  padding: 0.75rem 0.9rem; margin-bottom: 1rem;
+  border-radius: 10px; background: var(--dl-tile);
+}
+.dl-invest-sum .dl-bank-label { display: block; opacity: 1; color: var(--dl-muted); }
+.dl-invest-sum strong { display: block; font-size: 1.35rem; font-variant-numeric: tabular-nums; }
+.dl-invest-sum small { font-size: 0.85rem; }
+.dl-market { list-style: none; margin: 0; padding: 0; }
+.dl-market > li { border-bottom: 1px solid var(--dl-line); }
+.dl-market > li:last-child { border-bottom: none; }
+.dl-stock {
+  width: 100%; font: inherit; color: inherit; background: none; border: none; cursor: pointer;
+  text-align: left; display: flex; justify-content: space-between; align-items: center; gap: 0.75rem;
+  padding: 0.7rem 0.15rem;
+}
+.dl-stock .sym { margin-left: 0.4rem; font-size: 0.8rem; font-weight: 800; letter-spacing: 0.04em; color: var(--dl-delft); }
+.dl-stock .about { display: block; font-size: 0.85rem; color: var(--dl-muted); }
+.dl-stock .mine { display: block; font-size: 0.85rem; font-weight: 700; margin-top: 0.15rem; }
+.dl-stock .px { text-align: right; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dl-stock .px small { display: block; font-size: 0.8rem; font-weight: 700; }
+@media (prefers-color-scheme: dark) { .dl-stock .sym { color: #9fb6f0; } }
+.dl-trade { padding: 0 0.15rem 1rem; }
+.dl-trade-row { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin-top: 0.6rem; }
+.dl-trade-row .dl-input { width: 7.5rem; }

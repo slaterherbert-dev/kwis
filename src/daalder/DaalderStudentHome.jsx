@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../supabase";
+import DaalderInvest from "./DaalderInvest";
 import "./daalder.css";
 
 const fmt = (n) =>
@@ -15,6 +16,8 @@ const KIND_LABEL = {
   adjustment: "Correction / Corrección",
   refund: "Refund / Reembolso",
   desk_sell: "Desk sold / Escritorio vendido",
+  invest: "Investment / Inversión",
+  stock_sale: "Stock sale / Venta de acciones",
 };
 
 // Friendlier versions of the database's buying errors.
@@ -53,18 +56,21 @@ export default function DaalderStudentHome({ onSignOut }) {
   const [pickedDesk, setPickedDesk] = useState(null); // desk_id
   const [deskBusy, setDeskBusy] = useState(false);
   const [deskError, setDeskError] = useState("");
+  const [stocks, setStocks] = useState([]);
+  const [holdings, setHoldings] = useState([]);
+  const [stockOrders, setStockOrders] = useState([]);
 
   // RLS only ever returns this student's own row, transactions, and jobs.
   const load = useCallback(async () => {
     const { data, error } = await supabase
       .from("daalder_students")
-      .select("id, nickname, balance, class_id, daalder_classes(name, currency_name, base_pay, payday_dow, auto_payday, desk_cols, desk_rows)")
+      .select("id, nickname, balance, class_id, daalder_classes(name, currency_name, base_pay, payday_dow, auto_payday, desk_cols, desk_rows, stocks_enabled)")
       .single();
     if (error) return setError("Couldn't load your account. Try signing in again.");
     setError("");
     setMe(data);
 
-    const [tx, desks, jobRows, items, pending] = await Promise.all([
+    const [tx, desks, jobRows, items, pending, stockRows, holdRows, orderRows] = await Promise.all([
       supabase
         .from("daalder_transactions")
         .select("id, amount, kind, note, created_at")
@@ -78,6 +84,18 @@ export default function DaalderStudentHome({ onSignOut }) {
         .select("id, item_name, created_at")
         .eq("status", "pending")
         .order("created_at", { ascending: false }),
+      supabase
+        .from("daalder_stocks")
+        .select("symbol, name, about, about_es, price, prev_close")
+        .eq("active", true)
+        .order("sort")
+        .order("symbol"),
+      supabase.from("daalder_holdings").select("symbol, shares, cost"),
+      supabase
+        .from("daalder_stock_orders")
+        .select("id, symbol, side, amount, shares, cost")
+        .eq("status", "pending")
+        .order("id"),
     ]);
 
     setHistory(tx.data ?? []);
@@ -88,6 +106,9 @@ export default function DaalderStudentHome({ onSignOut }) {
     setJobs((jobRows.data ?? []).map((j) => j.daalder_jobs).filter(Boolean));
     setShop(items.data ?? []);
     setOrders(pending.data ?? []);
+    setStocks(stockRows.data ?? []);
+    setHoldings(holdRows.data ?? []);
+    setStockOrders(orderRows.data ?? []);
   }, []);
 
   useEffect(() => {
@@ -119,6 +140,14 @@ export default function DaalderStudentHome({ onSignOut }) {
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, [load]);
+
+  // Stock orders go through every 30 minutes; check back every 5 while the page is open.
+  const stocksOn = !!me?.daalder_classes?.stocks_enabled;
+  useEffect(() => {
+    if (!stocksOn) return;
+    const t = setInterval(load, 5 * 60 * 1000);
+    return () => clearInterval(t);
+  }, [stocksOn, load]);
 
   useEffect(() => {
     if (!arrival) return;
@@ -153,7 +182,16 @@ export default function DaalderStudentHome({ onSignOut }) {
 
   const currency = me?.daalder_classes?.currency_name ?? "Munt";
   const savings = Number(me?.balance ?? 0);
-  const netWorth = savings + assets;
+  // Investments count toward assets, including orders still waiting to go through.
+  const stockPrice = (sym) => Number(stocks.find((s) => s.symbol === sym)?.price ?? 0);
+  const investValue =
+    holdings.reduce((sum, h) => sum + Number(h.shares) * stockPrice(h.symbol), 0) +
+    stockOrders.reduce(
+      (sum, o) => sum + (o.side === "buy" ? Number(o.amount) : Number(o.shares) * stockPrice(o.symbol)),
+      0
+    );
+  const totalAssets = assets + investValue;
+  const netWorth = savings + totalAssets;
   const basePay = Number(me?.daalder_classes?.base_pay ?? 0);
   const autoPayday = !!me?.daalder_classes?.auto_payday;
   const paydayName = PAYDAY[me?.daalder_classes?.payday_dow];
@@ -205,7 +243,7 @@ export default function DaalderStudentHome({ onSignOut }) {
                   </div>
                   <div>
                     <span className="dl-bank-label">Assets<small>Bienes</small></span>
-                    <strong>{fmt(assets)}</strong>
+                    <strong>{fmt(totalAssets)}</strong>
                   </div>
                 </div>
               </div>
@@ -304,6 +342,18 @@ export default function DaalderStudentHome({ onSignOut }) {
                 </div>
               )}
             </section>
+
+            {(stocksOn || holdings.length > 0 || stockOrders.length > 0) && stocks.length > 0 && (
+              <DaalderInvest
+                stocks={stocks}
+                holdings={holdings}
+                orders={stockOrders}
+                savings={savings}
+                currency={currency}
+                enabled={stocksOn}
+                onChanged={load}
+              />
+            )}
 
             {deskMap.length > 0 && (
               <section className="dl-panel">
