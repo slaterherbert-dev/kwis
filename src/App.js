@@ -111,7 +111,23 @@ function AppInner() {
     if (teacher) show(fromHash)
     else { setAfterLogin(fromHash); show('login') }
   }, [loading])
-
+  // Typing a new #address into a tab that's already open doesn't reload the
+  // page, so also open the right screen whenever the # part changes.
+  useEffect(() => {
+    if (loading) return
+    const onHashChange = () => {
+      if (hashBase() === 'daalder') {
+        show(isStudentAccount ? 'daalder-home' : 'daalder-login')
+        return
+      }
+      const fromHash = screenFromHash()
+      if (!fromHash) return
+      if (teacherRef.current) show(fromHash)
+      else { setAfterLogin(fromHash); show('login') }
+    }
+    window.addEventListener('hashchange', onHashChange)
+    return () => window.removeEventListener('hashchange', onHashChange)
+  }, [loading, isStudentAccount])
   // Right after signing in, open teacher home (or the page they asked for)
   useEffect(() => {
     if (teacher && screen === 'login') {
