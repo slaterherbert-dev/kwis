@@ -1,0 +1,11 @@
+# Settings and keys (these live in Vercel instead)
+.env
+.env.local
+.env.*.local
+
+# Mac folder files
+.DS_Store
+
+# Installed packages and build output
+node_modules/
+build/
