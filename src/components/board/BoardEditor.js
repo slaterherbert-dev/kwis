@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { BACKGROUNDS, bgStyle, compressImage } from './backgrounds'
 import { WIDGETS } from './widgets'
 import WidgetFrame from './WidgetFrame'
+import { htmlToText } from './richText'
 
 const newId = () => Math.random().toString(36).slice(2, 10)
 
@@ -27,19 +28,36 @@ export function starterBoard(bg = BACKGROUNDS[0]) {
   }
 }
 
+// Widgets in stacking order, bottom first. Ties go by list order, which is
+// also how the browser draws them.
+const byLayer = widgets =>
+  widgets.map((w, i) => ({ w, i })).sort((a, b) => (a.w.z || 0) - (b.w.z || 0) || a.i - b.i).map(x => x.w)
+
+// A short name for each widget in the Layers list
+function layerName(w) {
+  const def = WIDGETS[w.type]
+  if (w.type === 'text') {
+    const words = (w.props.titleHtml != null ? htmlToText(w.props.titleHtml) : w.props.title || '').trim() ||
+      (w.props.bodyHtml != null ? htmlToText(w.props.bodyHtml) : w.props.body || '').trim().split('\n')[0]
+    return words ? words.slice(0, 40) : 'Empty text box'
+  }
+  if (w.type === 'image') return w.props.caption ? `Image: ${w.props.caption.slice(0, 30)}` : w.props.src ? 'Image' : 'Empty image'
+  return def?.label || w.type
+}
+
 const isTyping = el =>
   el && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName))
 
 export default function BoardEditor({ board, deckName, position, total, onPrev, onNext, onExit, onData, saveLabel, saveError }) {
   const data = board.data
   const [selected, setSelected] = useState(null)
-  const [panel, setPanel] = useState(false) // background panel open?
+  const [panel, setPanel] = useState(null) // 'bg' | 'layers' | null
   const [toolbarHidden, setToolbarHidden] = useState(false)
   const [bgError, setBgError] = useState('')
   const boardRef = useRef(null)
 
   // Clear selection when switching boards
-  useEffect(() => { setSelected(null); setPanel(false) }, [board.id])
+  useEffect(() => { setSelected(null); setPanel(null) }, [board.id])
 
   // Arrow keys / Page Up-Down (and most presentation clickers) flip boards
   useEffect(() => {
@@ -59,12 +77,21 @@ export default function BoardEditor({ board, deckName, position, total, onPrev, 
     onData(d => ({ ...d, widgets: d.widgets.map(w => (w.id === id ? { ...w, props: { ...w.props, ...patch } } : w)) }))
   const removeWidget = id => { onData(d => ({ ...d, widgets: d.widgets.filter(w => w.id !== id) })); setSelected(null) }
 
-  const bringToFront = id => {
-    setSelected(id)
-    const top = Math.max(0, ...data.widgets.map(w => w.z))
-    const w = data.widgets.find(x => x.id === id)
-    if (w && w.z < top) updateWidget(id, { z: top + 1 })
-  }
+  // Change which widget sits on top. Clicking a widget only selects it;
+  // it stays at its layer until you move it with these.
+  // action: 'front' | 'back' | 'up' (one step) | 'down' (one step)
+  const moveLayer = (id, action) => onData(d => {
+    const stack = byLayer(d.widgets)
+    const from = stack.findIndex(w => w.id === id)
+    if (from < 0) return d
+    const last = stack.length - 1
+    const to = { front: last, back: 0, up: Math.min(last, from + 1), down: Math.max(0, from - 1) }[action]
+    const [item] = stack.splice(from, 1)
+    stack.splice(to, 0, item)
+    // Renumber 1, 2, 3… so the layers stay tidy
+    const zOf = new Map(stack.map((w, i) => [w.id, i + 1]))
+    return { ...d, widgets: d.widgets.map(w => ({ ...w, z: zOf.get(w.id) })) }
+  })
 
   const addWidget = type => {
     const top = Math.max(0, ...data.widgets.map(w => w.z))
@@ -95,17 +122,19 @@ export default function BoardEditor({ board, deckName, position, total, onPrev, 
   return (
     <div className="board-root">
       <div className="board" ref={boardRef} style={bgStyle(data.bg)}
-        onPointerDown={() => { setSelected(null); setPanel(false) }}>
+        onPointerDown={() => { setSelected(null); setPanel(null) }}>
         {data.widgets.map(w => {
           const def = WIDGETS[w.type]
           if (!def) return null
-          const { Component, Settings } = def
+          const { Component, Settings, Tools } = def
           return (
             <WidgetFrame key={w.id} widget={w} boardRef={boardRef}
               selected={selected === w.id}
-              onSelect={() => bringToFront(w.id)}
+              onSelect={() => setSelected(w.id)}
               onChange={patch => updateWidget(w.id, patch)}
               onDelete={() => removeWidget(w.id)}
+              onLayer={action => moveLayer(w.id, action)}
+              tools={Tools && <Tools />}
               settings={Settings && <Settings props={w.props} update={p => updateProps(w.id, p)} />}>
               <Component props={w.props} update={p => updateProps(w.id, p)} />
             </WidgetFrame>
@@ -127,13 +156,17 @@ export default function BoardEditor({ board, deckName, position, total, onPrev, 
             </button>
           ))}
           <span className="bt-sep" />
-          <button className={`bt-btn ${panel ? 'on' : ''}`} onClick={() => setPanel(p => !p)}>
+          <button className={`bt-btn ${panel === 'layers' ? 'on' : ''}`} onClick={() => setPanel(p => (p === 'layers' ? null : 'layers'))}
+            title="See every item, find hidden ones, and choose what's on top">
+            <span className="bt-icon">📚</span><span>Layers</span>
+          </button>
+          <button className={`bt-btn ${panel === 'bg' ? 'on' : ''}`} onClick={() => setPanel(p => (p === 'bg' ? null : 'bg'))}>
             <span className="bt-icon">🌄</span><span>Background</span>
           </button>
           <button className="bt-btn" onClick={toggleFullscreen}>
             <span className="bt-icon">⛶</span><span>Full screen</span>
           </button>
-          <button className="bt-btn" onClick={() => { setToolbarHidden(true); setPanel(false) }} title="Hide toolbar">
+          <button className="bt-btn" onClick={() => { setToolbarHidden(true); setPanel(null) }} title="Hide toolbar">
             <span className="bt-icon">▼</span><span>Hide</span>
           </button>
           <span className="bt-sep" />
@@ -146,7 +179,33 @@ export default function BoardEditor({ board, deckName, position, total, onPrev, 
         </div>
       )}
 
-      {panel && (
+      {panel === 'layers' && (
+        <div className="bp" onPointerDown={e => e.stopPropagation()}>
+          <h2 className="bp-title">Layers</h2>
+          {data.widgets.length === 0 ? (
+            <p className="bp-hint">Nothing on this board yet.</p>
+          ) : (
+            <>
+              <p className="bp-hint">Top of the list is in front. Click an item to select it.</p>
+              <ol className="bp-list bp-layers">
+                {byLayer(data.widgets).reverse().map((w, i, arr) => (
+                  <li key={w.id} className={selected === w.id ? 'on' : ''}>
+                    <button className="bp-open" onClick={() => setSelected(w.id)}>
+                      <span className="bp-layer-icon">{WIDGETS[w.type]?.icon}</span>{layerName(w)}
+                    </button>
+                    <button className="bp-step" onClick={() => moveLayer(w.id, 'up')} disabled={i === 0}
+                      aria-label={`Move ${layerName(w)} forward`} title="Move forward one layer">↑</button>
+                    <button className="bp-step" onClick={() => moveLayer(w.id, 'down')} disabled={i === arr.length - 1}
+                      aria-label={`Move ${layerName(w)} backward`} title="Move back one layer">↓</button>
+                  </li>
+                ))}
+              </ol>
+            </>
+          )}
+        </div>
+      )}
+
+      {panel === 'bg' && (
         <div className="bp bp-bg" onPointerDown={e => e.stopPropagation()}>
           <h2 className="bp-title">Background</h2>
           <div className="bp-swatches">

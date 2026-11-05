@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { compressImage } from './backgrounds'
+import { cleanHtml, htmlToText, richValue } from './richText'
 
 // ── Card colors (shared by every widget) ──
 export const TONES = {
@@ -35,22 +36,45 @@ function beep() {
 
 const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 
-// Editable text that doesn't lose the cursor while you type
-function Editable({ value, onChange, className, placeholder }) {
+// Editable text that doesn't lose the cursor while you type.
+// rich = allow bold / italic / underline (value is cleaned-up HTML)
+function Editable({ value, onChange, className, placeholder, rich }) {
   const ref = useRef(null)
   useEffect(() => {
     const el = ref.current
-    if (el && document.activeElement !== el && el.innerText !== value) el.innerText = value || ''
-  }, [value])
+    if (!el || document.activeElement === el) return
+    if (rich) { if (el.innerHTML !== (value || '')) el.innerHTML = value || '' }
+    else if (el.innerText !== value) el.innerText = value || ''
+  }, [value, rich])
+
+  const onInput = e => {
+    const el = e.currentTarget
+    if (!rich) { onChange(el.innerText); return }
+    // When everything is deleted, browsers leave a stray <br> behind;
+    // clear it so the placeholder shows again
+    if (el.textContent === '' && el.innerHTML === '<br>') el.innerHTML = ''
+    onChange(cleanHtml(el.innerHTML))
+  }
+
+  // Pasted text comes in plain, so fonts and colors from other sites
+  // don't come along with it
+  const onPaste = e => {
+    if (!rich) return
+    e.preventDefault()
+    const text = e.clipboardData.getData('text/plain')
+    document.execCommand('insertText', false, text)
+  }
+
   return (
     <div
       ref={ref}
       className={className}
-      contentEditable="plaintext-only"
+      contentEditable={rich ? true : 'plaintext-only'}
       suppressContentEditableWarning
       spellCheck
       data-placeholder={placeholder}
-      onInput={e => onChange(e.currentTarget.innerText)}
+      onInput={onInput}
+      onPaste={onPaste}
     />
   )
 }
@@ -59,13 +83,66 @@ function Editable({ value, onChange, className, placeholder }) {
 function TextWidget({ props, update }) {
   return (
     <div className="w-text" style={{ '--fs': TEXT_SIZES[props.size] || TEXT_SIZES.M }}>
-      <Editable className="w-text-title" value={props.title} placeholder="Title"
-        onChange={title => update({ title })} />
-      <Editable className="w-text-body" value={props.body} placeholder="Click to type"
-        onChange={body => update({ body })} />
+      <Editable rich className="w-text-title" value={richValue(props, 'title')} placeholder="Title"
+        onChange={html => update({ titleHtml: html, title: htmlToText(html) })} />
+      <Editable rich className="w-text-body" value={richValue(props, 'body')} placeholder="Click to type"
+        onChange={html => update({ bodyHtml: html, body: htmlToText(html) })} />
     </div>
   )
 }
+
+// Bold / italic / underline buttons that sit in the text box's top bar.
+// They work on the words you've highlighted (or on what you type next).
+const FORMATS = [
+  { cmd: 'bold', label: 'B', name: 'Bold', key: 'Ctrl+B', style: { fontWeight: 800 } },
+  { cmd: 'italic', label: 'I', name: 'Italic', key: 'Ctrl+I', style: { fontStyle: 'italic', fontFamily: 'Georgia, serif' } },
+  { cmd: 'underline', label: 'U', name: 'Underline', key: 'Ctrl+U', style: { textDecoration: 'underline' } },
+]
+
+function FormatTools() {
+  const ref = useRef(null)
+  const [active, setActive] = useState('')
+
+  const selectionInside = () => {
+    const frame = ref.current?.closest('.bw')
+    const node = document.getSelection()?.anchorNode
+    return frame && node && frame.contains(node)
+  }
+
+  const refresh = () => {
+    const now = selectionInside()
+      ? FORMATS.filter(f => document.queryCommandState(f.cmd)).map(f => f.cmd).join(' ')
+      : ''
+    setActive(prev => (prev === now ? prev : now))
+  }
+
+  useEffect(() => {
+    document.addEventListener('selectionchange', refresh)
+    return () => document.removeEventListener('selectionchange', refresh)
+  }, [])
+
+  const run = cmd => {
+    if (!selectionInside()) return
+    document.execCommand(cmd)
+    refresh()
+  }
+
+  return (
+    <span ref={ref} className="bw-format">
+      {FORMATS.map(f => (
+        <button key={f.cmd} style={f.style}
+          className={active.split(' ').includes(f.cmd) ? 'on' : ''}
+          aria-pressed={active.split(' ').includes(f.cmd)}
+          aria-label={f.name} title={`${f.name} (${f.key}). Highlight words first.`}
+          onMouseDown={e => e.preventDefault()} // keep the highlighted words selected
+          onClick={() => run(f.cmd)}>
+          {f.label}
+        </button>
+      ))}
+    </span>
+  )
+}
+
 function TextSettings({ props, update }) {
   return (
     <div className="ws-row">
@@ -419,7 +496,7 @@ function ImageSettings({ props, update }) {
 
 // ── Registry: everything the toolbar can add ──
 export const WIDGETS = {
-  text:    { label: 'Text',          icon: '📝', size: { w: 30, h: 28 }, tone: 'yellow', defaults: { title: '', body: '', size: 'M' }, Component: TextWidget, Settings: TextSettings },
+  text:    { label: 'Text',          icon: '📝', size: { w: 30, h: 28 }, tone: 'yellow', defaults: { title: '', body: '', size: 'M' }, Component: TextWidget, Settings: TextSettings, Tools: FormatTools },
   timer:   { label: 'Timer',         icon: '⏳', size: { w: 24, h: 30 }, tone: 'white',  defaults: { seconds: 300 }, Component: TimerWidget },
   clock:   { label: 'Clock',         icon: '🕒', size: { w: 22, h: 18 }, tone: 'white',  defaults: {}, Component: ClockWidget },
   picker:  { label: 'Name picker',   icon: '🎲', size: { w: 30, h: 38 }, tone: 'sky',    defaults: {}, Component: PickerWidget },

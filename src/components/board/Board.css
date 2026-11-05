@@ -34,6 +34,11 @@
 }
 .bw-chrome button:hover { background: rgba(255, 255, 255, 0.15); }
 .bw-grip { cursor: grab !important; }
+.bw-chrome button { display: inline-flex; align-items: center; justify-content: center; }
+.bw-format { display: flex; gap: 2px; }
+.bw-format button { font-family: 'DM Sans', system-ui, sans-serif; font-size: 16px; }
+.bw-chrome button.on { background: #6c63ff; }
+.bw-chrome-sep { width: 1px; margin: 6px 2px; background: rgba(255, 255, 255, 0.2); }
 .bw-grip:active { cursor: grabbing !important; }
 
 .bw-resize {
@@ -199,6 +204,13 @@
 .bp-open { flex: 1; text-align: left; padding: 10px 12px; border: none; background: transparent; color: #f0f0fa; font-family: inherit; font-size: 0.95rem; cursor: pointer; border-radius: 10px; }
 .bp-open:hover { background: rgba(255, 255, 255, 0.06); }
 .bp-rename { flex: 1; padding: 9px 12px; font-size: 0.95rem; }
+.bp-hint { font-size: 0.8rem; color: #9a9ac0; margin: -4px 0 10px; }
+.bp-layers { margin-bottom: 0; }
+.bp-layer-icon { margin-right: 8px; }
+.bp-step { width: 32px; height: 32px; flex-shrink: 0; border: none; border-radius: 8px; background: transparent; color: #f0f0fa; font-size: 16px; cursor: pointer; }
+.bp-step:hover:not(:disabled) { background: rgba(255, 255, 255, 0.1); }
+.bp-step:disabled { opacity: 0.25; cursor: default; }
+.bp-open { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bp-delete { border: none; background: transparent; cursor: pointer; padding: 8px; border-radius: 8px; font-size: 15px; }
 .bp-delete:hover { background: rgba(255, 71, 87, 0.15); }
 .bp-swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
