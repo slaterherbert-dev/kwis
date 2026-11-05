@@ -77,8 +77,8 @@ export default function BoardEditor({ board, deckName, position, total, onPrev, 
     onData(d => ({ ...d, widgets: d.widgets.map(w => (w.id === id ? { ...w, props: { ...w.props, ...patch } } : w)) }))
   const removeWidget = id => { onData(d => ({ ...d, widgets: d.widgets.filter(w => w.id !== id) })); setSelected(null) }
 
-  // Change which widget sits on top. Clicking a widget only selects it;
-  // it stays at its layer until you move it with these.
+  // Change which widget sits on top. Dragging or resizing a widget brings it
+  // to the front; just clicking into it (to type) leaves it where it is.
   // action: 'front' | 'back' | 'up' (one step) | 'down' (one step)
   const moveLayer = (id, action) => onData(d => {
     const stack = byLayer(d.widgets)
@@ -86,6 +86,7 @@ export default function BoardEditor({ board, deckName, position, total, onPrev, 
     if (from < 0) return d
     const last = stack.length - 1
     const to = { front: last, back: 0, up: Math.min(last, from + 1), down: Math.max(0, from - 1) }[action]
+    if (to === from) return d // already there; nothing to save
     const [item] = stack.splice(from, 1)
     stack.splice(to, 0, item)
     // Renumber 1, 2, 3… so the layers stay tidy

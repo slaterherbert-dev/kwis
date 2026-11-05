@@ -29,6 +29,7 @@ export default function WidgetFrame({ widget, boardRef, selected, onSelect, onCh
     e.preventDefault()
     e.stopPropagation()
     onSelect()
+    onLayer('front') // whatever you drag comes to the front, like Classroomscreen
     const rect = boardRef.current.getBoundingClientRect()
     const s = { px: e.clientX, py: e.clientY, x: widget.x, y: widget.y, w: widget.w, h: widget.h }
     const move = ev => {
