@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Petition the Emperor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --page:#F4EEE2; --panel:#FBF8F1; --ink:#1F1B18; --muted:#6E6259; --line:#DCCFB9; --tint:#EDE4D2;
+  --ember:#B8401B; --steel:#2F5D7C; --ok:#2E6B4F; --ok-bg:#E2EEE5; --bad-bg:#F5E1D8;
+  --vellum:#F1E3C4; --vellum-ink:#2B2218;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+html{scroll-padding-top:120px}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--page);color:var(--ink);font-family:Inter,system-ui,-apple-system,"Segoe UI",Arial,sans-serif;font-size:17px;line-height:1.6}
+h1,h2,h3{font-family:Fraunces,Georgia,"Times New Roman",serif;line-height:1.2;margin:0 0 .4em;color:var(--ink)}
+h1{font-size:clamp(2.1rem,6vw,3.2rem);font-weight:700}
+h2{font-size:1.8rem;font-weight:600}
+h3{font-size:1.2rem;font-weight:600}
+p{margin:0 0 .9em}
+button,input,textarea{font:inherit}
+:focus-visible{outline:3px solid var(--steel);outline-offset:2px}
+.wrap{max-width:760px;margin:0 auto;padding:0 20px}
+
+/* route bar */
+.route{position:sticky;top:0;z-index:5;background:var(--page);border-bottom:1px solid var(--line);padding:8px 0 4px}
+.route svg{display:block;width:100%;height:auto;max-height:96px}
+.stop{cursor:pointer}
+.stop.locked{cursor:not-allowed}
+.stop text{font-family:Inter,Arial,sans-serif;font-size:15px;fill:var(--muted)}
+.stop.current text{fill:var(--ink);font-weight:600}
+
+header.hero{padding:34px 0 8px}
+.when{font-family:Fraunces,Georgia,serif;font-style:italic;color:var(--ember);font-size:1.1rem;margin-bottom:.2em}
+.lede{font-size:1.12rem;color:var(--muted);max-width:60ch}
+main{padding:10px 0 60px}
+
+.brief{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px 24px;margin:0 0 22px}
+.paras{list-style:none;margin:0;padding:0}
+.paras li{margin:0 0 .8em;padding:4px 8px;border-radius:8px;transition:background .2s}
+.paras li:last-child{margin-bottom:0}
+.paras li.hl{background:#EBD9A6}
+.pn{display:inline-block;min-width:2.3em;font-family:Fraunces,Georgia,serif;font-weight:700;color:var(--ember)}
+
+.q{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin:0 0 18px}
+.q.done{border-color:var(--ok)}
+.qhead{font-weight:600;margin-bottom:10px}
+.opts{display:grid;gap:8px;margin:6px 0 12px}
+.opt{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel);cursor:pointer}
+.opt input{margin-top:5px;accent-color:var(--steel)}
+.opt:has(input:checked){border-color:var(--steel);background:var(--tint)}
+.opt.struck{opacity:.55;text-decoration:line-through;cursor:not-allowed}
+.q.done .opt{cursor:default}
+.q.done .opt:has(input:checked){border-color:var(--ok);background:var(--ok-bg)}
+.evi-label{font-size:.95rem;color:var(--muted);margin:4px 0 6px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.chip{min-width:46px;height:44px;border-radius:22px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-weight:600;cursor:pointer;font-family:Fraunces,Georgia,serif}
+.chip[aria-pressed="true"]{background:var(--steel);color:#fff;border-color:var(--steel)}
+.btn{background:var(--steel);color:#fff;border:none;border-radius:10px;padding:10px 18px;font-weight:600;cursor:pointer}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.ghost{background:transparent;color:var(--steel);border:1px solid var(--steel)}
+.btn.ember{background:var(--ember)}
+.fb{margin-top:10px;padding:10px 12px;border-radius:10px;font-size:.97rem}
+.fb.ok{background:var(--ok-bg)}
+.fb.bad{background:var(--bad-bg)}
+.fb:empty{display:none}
+.wait{font-size:.93rem;color:var(--ember);font-weight:600;margin-left:10px}
+
+.fig{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:0 0 18px}
+.fig svg{display:block;width:100%;height:auto}
+.fig figcaption{font-size:.9rem;color:var(--muted);margin-top:8px}
+
+/* sort */
+.pool{display:flex;flex-wrap:wrap;gap:8px;min-height:52px;padding:10px;border:1px dashed var(--line);border-radius:12px;margin-bottom:12px}
+.bins{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.bin{border:2px solid var(--line);border-radius:12px;padding:10px;min-height:140px;background:var(--tint);cursor:pointer}
+.bin h4{margin:0 0 8px;font-family:Fraunces,Georgia,serif;font-size:1.05rem}
+.bin .cards{display:flex;flex-wrap:wrap;gap:6px}
+.bin.target{border-color:var(--steel)}
+.card{padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;font-weight:500;font-size:.95rem;text-align:left}
+.card.sel{outline:3px solid var(--steel)}
+.card.good{border-color:var(--ok);background:var(--ok-bg);cursor:default}
+@keyframes nudge{0%,100%{transform:none}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+.card.nope{animation:nudge .3s 2;border-color:var(--ember)}
+
+/* decisions */
+.court{margin-top:12px;border-radius:10px;padding:12px 14px;background:var(--tint)}
+.court p{margin:0 0 .5em}
+.court p:last-child{margin:0}
+.court .who{font-family:Fraunces,Georgia,serif;font-weight:600}
+textarea,.in{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:#fff;color:var(--ink)}
+textarea{min-height:84px;resize:vertical}
+.count{font-size:.88rem;color:var(--muted);margin-top:4px}
+.field{display:grid;gap:4px;margin-bottom:12px}
+.field label{font-weight:600;font-size:.97rem}
+.field .sub{font-weight:400;color:var(--muted);font-size:.9rem}
+
+/* the edict: the one bold element */
+.edict{position:relative;background:var(--vellum);color:var(--vellum-ink);border-radius:6px;padding:30px 34px 34px;margin:0 0 20px;
+  box-shadow:0 0 0 1px #C9AF7B inset, 0 14px 0 -8px #D7BF8C, 0 -14px 0 -8px #D7BF8C}
+.edict::before,.edict::after{content:"";position:absolute;left:-10px;right:-10px;height:16px;border-radius:8px;background:#7A4A22}
+.edict::before{top:-8px}.edict::after{bottom:-8px}
+.edict h3{font-size:1.45rem;color:var(--vellum-ink);margin-right:90px}
+.edict .cite{font-size:.86rem;color:#5E503C;margin-bottom:14px;margin-right:90px}
+.edict ol{margin:0;padding-left:1.8em;font-family:Fraunces,Georgia,serif;font-size:1.08rem;line-height:1.75}
+.edict li{margin-bottom:.45em;padding:2px 6px;border-radius:6px}
+.edict li.hl{background:#E5CB8E}
+.edict li::marker{font-family:Inter,Arial,sans-serif;font-weight:600;color:var(--ember)}
+.seal{position:absolute;top:26px;right:28px;width:70px;height:70px;transform:rotate(-4deg)}
+
+.chain{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:8px;align-items:center;margin:8px 0 12px}
+.chain .link{background:var(--tint);border-radius:10px;padding:10px;font-weight:500;font-size:.95rem;min-height:64px;display:flex;align-items:center}
+.chain .arrow{color:var(--ember);font-weight:700;font-size:1.3rem}
+.chain textarea{min-height:64px}
+
+.next{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:8px}
+.next .note{color:var(--muted);font-size:.95rem}
+.banner{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:20;background:var(--ink);color:#fff;border-radius:12px;padding:12px 18px;max-width:92vw;box-shadow:0 6px 18px rgba(0,0,0,.25)}
+.epi{border-left:4px solid var(--ember);padding:4px 0 4px 16px;margin:6px 0 20px}
+
+/* submission card */
+.cardwrap{display:flex;justify-content:center}
+.subcard{width:780px;background:#FFFDF8;color:var(--ink);border:2px solid var(--ink);border-radius:8px;padding:18px 22px;font-size:.78rem;line-height:1.38}
+.subcard h2{font-size:1.45rem;margin:0}
+.subcard .top{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;border-bottom:2px solid var(--ember);padding-bottom:6px;margin-bottom:8px}
+.subcard .who{font-family:Fraunces,Georgia,serif;font-size:1.25rem;font-weight:700;text-align:right}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px}
+.stats div{background:var(--tint);border-radius:6px;padding:5px 8px}
+.stats b{display:block;font-size:1.05rem;font-family:Fraunces,Georgia,serif}
+.stats .flag{background:#F0C9B9}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:6px 16px}
+.cols .r{margin:0 0 4px}
+.cols .r b{color:var(--steel)}
+.subcard .full{grid-column:1/-1}
+.subcard .code{margin-top:6px;font-weight:600}
+.shot{position:fixed;inset:0;background:#2A2522;z-index:50;display:flex;align-items:flex-start;justify-content:center;overflow:hidden;padding-top:8px}
+.shot .subcard{transform-origin:top center}
+.shot-close{position:fixed;bottom:14px;right:14px;z-index:51}
+
+footer{color:var(--muted);font-size:.9rem;border-top:1px solid var(--line);padding:18px 0 40px}
+footer details{margin-top:6px}
+.vgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin:10px 0}
+.hide{display:none !important}
+@media (max-width:640px){
+  .bins{grid-template-columns:1fr}
+  .chain{grid-template-columns:1fr}
+  .chain .arrow{transform:rotate(90deg);justify-self:center}
+  .q,.brief{padding:16px}
+  .edict{padding:24px 18px 28px}
+  .seal{width:54px;height:54px;top:18px;right:14px}
+  .stop text{font-size:22px}
+}
+@media (prefers-reduced-motion: reduce){*{transition:none !important;animation:none !important}}
+</style>
+</head>
+<body>
+<nav class="route" aria-label="Your journey"><div class="wrap"><svg id="route" viewBox="0 0 760 92" role="img" aria-label="Journey progress"></svg></div></nav>
+<main class="wrap" id="main"></main>
+<footer class="wrap">
+  <div>Petition the Emperor. Unit 3, Lesson 12, Day 7. Your answers save in this browser only.</div>
+  <details><summary>Teacher check</summary>
+    <p>Type what a student’s card shows to confirm its code.</p>
+    <div class="vgrid">
+      <input id="v-name" class="in" placeholder="Name" aria-label="Name">
+      <input id="v-per" class="in" placeholder="Period" aria-label="Period">
+      <input id="v-ft" class="in" placeholder="First try" aria-label="First-try score">
+      <input id="v-lk" class="in" placeholder="Lockouts" aria-label="Lockouts">
+      <input id="v-rs" class="in" placeholder="Restarts" aria-label="Restarts">
+    </div>
+    <button class="btn ghost" id="v-go" type="button">Show code</button> <b id="v-out"></b>
+  </details>
+</footer>
+<script>
+(function(){
+"use strict";
+const KEY="u3_day7_petition_v1", RKEY="u3_day7_petition_restarts";
+const LOCK_MS=60000, RAPID_MS=4000, RAPID_LIMIT=3, WRONG_WAIT_MS=15000;
+
+const STATIONS=[
+{id:"mission",stop:"London",title:"Your mission",when:"London, 1792",
+ lede:"You are joining the first British embassy to the emperor of China. Read each briefing, answer the questions, and cite your evidence.",
+ brief:[
+  "Britain is the richest trading nation in Europe, and the British have fallen in love with <b>tea</b>. They drink millions of pounds of it every year, and all of it comes from China.",
+  "The problem is that China wants almost nothing Britain makes. Chinese merchants want to be paid in <b>silver</b>, so every year tons of British silver sail to China and do not come back.",
+  "King George III is sending <b>Lord George Macartney</b> to the Qing emperor with a ship full of gifts and a list of requests. His job is to convince the emperor to open China to more British trade. You are a member of his embassy."],
+ items:[
+  {id:"m1",type:"evi",q:"Why was Britain losing silver to China?",opts:["Britain bought lots of tea, and China wanted silver, not British goods","China charged Britain a heavy tax on every ship that docked","British pirates kept stealing silver from Chinese ships","Britain paid China in silver to protect its Asian colonies"],a:0,evi:[2],hint:"Look for the paragraph about what China wants from Britain.",why:"Paragraph 2: China wanted silver, not British goods, so silver flowed out of Britain to pay for tea."},
+  {id:"m2",type:"evi",q:"What was Macartney’s job?",opts:["Persuade the emperor to open China to more British trade","Declare war on China","Buy as much tea as possible","Bring Chinese scholars back to London"],a:0,evi:[3],hint:"Which paragraph names Macartney?",why:"Paragraph 3: he was sent to convince the emperor to open China to more trade."}
+ ]},
+{id:"qing",stop:"The Qing",title:"Who you’re petitioning",when:"The Qing dynasty, 1644–1793",
+ lede:"Before you meet the emperor, learn who he is and how his family came to rule China.",
+ brief:[
+  "In 1644, rebels captured Beijing and the last Ming emperor died. Many Chinese believed the Ming had lost the <b>Mandate of Heaven</b>: the idea that Heaven gives a ruler the right to rule, and takes it away when a ruler fails.",
+  "The <b>Manchus</b>, a people from the northeast, outside the Great Wall, saw their chance. A Ming general opened a gate in the Wall and let their army through. The Manchus took Beijing, founded the <b>Qing dynasty</b>, and claimed the Mandate of Heaven for themselves.",
+  "The Qing could be <b>tough</b>. Chinese men were ordered to wear the <b>queue</b>, a long braid with the front of the head shaved, to show loyalty. Manchus held many of the highest posts.",
+  "The Qing could also be <b>generous</b>. They kept the civil service exams and Confucian ideas, gave Chinese officials important jobs, and paid for Chinese art and scholarship.",
+  "Under strong emperors like Kangxi and <b>Qianlong</b>, China was peaceful and rich, and its population grew enormously. In 1793, Qianlong was 82 years old and had ruled for almost 60 years."],
+ items:[
+  {id:"q1",type:"evi",q:"What is the Mandate of Heaven?",opts:["The belief that Heaven gives a ruler the right to rule and can take it away","A law requiring all Chinese men to wear the queue hairstyle","The name of the emperor’s summer palace at Chengde","A tax that foreign merchants paid to trade at Canton"],a:0,evi:[1],hint:"The term is in bold in one paragraph.",why:"Paragraph 1: Heaven gives the right to rule and takes it away from rulers who fail."},
+  {id:"q2",type:"evi",q:"On Day 6 the Ming rebuilt the Great Wall as a barrier. How did the Manchus get past it?",opts:["A Ming general opened a gate and let them through","They sailed around it","They tunneled under it","It had already fallen down"],a:0,evi:[2],hint:"Barriers depend on the people who guard them.",why:"Paragraph 2: a Ming general opened a gate. The barrier failed from the inside."},
+  {id:"q3",type:"evi",q:"Which pair shows one tough Qing policy and one generous one?",opts:["Tough: men had to wear the queue. Generous: the civil service exams continued.","Tough: the exams were canceled. Generous: the queue was optional.","Tough: Chinese officials were all fired. Generous: taxes were ended.","Tough: art was banned. Generous: Manchus left Beijing."],a:0,evi:[3,4],hint:"You need two paragraphs for this one.",why:"Paragraphs 3 and 4: the queue was required, and the exams and Confucian ideas were kept."},
+  {figure:"pop"},
+  {id:"q4",type:"mc",q:"Look at the chart. About how much did China’s population change from 1650 to 1800?",opts:["It roughly doubled","It stayed about the same","It fell by half","It grew ten times larger"],a:0,hint:"Compare the first bar and the last bar.",why:"From about 150 million to about 300 million or more: roughly double. China was the world’s largest country by far."}
+ ]},
+{id:"canton",stop:"Canton",title:"The Canton system",when:"Canton (Guangzhou), 1793",
+ lede:"British ships are allowed into China, but only one door is open. Learn the rules of the port.",
+ brief:[
+  "Since 1757, the Qing had allowed European ships to trade at only one port: <b>Canton</b> (Guangzhou), in the far south.",
+  "Europeans could buy and sell only through a small group of licensed Chinese merchants called the <b>Cohong</b>. They could not trade with anyone else.",
+  "Foreign traders lived in a narrow row of buildings called the <b>Thirteen Factories</b>, outside the city walls. They were not allowed into the city.",
+  "They could stay only during the trading season, roughly October to March. Then they had to leave for the Portuguese town of Macao.",
+  "Foreigners could not bring their wives to Canton, and Chinese people were forbidden to teach them the Chinese language.",
+  "The emperor saw these rules as generous: foreigners were allowed to trade at all. Many British merchants saw Canton as a cage."],
+ items:[
+  {id:"sort",type:"sort",q:"Sort the rules. What could a British trader at Canton do, and what was forbidden? Click a card, then a box.",
+   bins:[{id:"y",label:"Allowed"},{id:"n",label:"Forbidden"}],
+   cards:[["Trade at the port of Canton","y"],["Buy tea through the Cohong merchants","y"],["Live in the Thirteen Factories","y"],["Wait out the off-season in Macao","y"],["Enter the walled city of Canton","n"],["Trade at other Chinese ports","n"],["Bring his wife to Canton","n"],["Hire a Chinese teacher to learn the language","n"]]},
+  {id:"c1",type:"evi",q:"On Day 6 you chose a corner for your town’s big decision. Which corner matches the Canton system?",fixed:true,opts:["A: Open fully. Anyone can come and trade anywhere.","B: Open with rules. Trade anywhere, with some limits.","C: One gate only. Trade in one place, under control.","D: Close the door. No foreign trade at all."],a:2,evi:[1],hint:"How many ports were open?",why:"Paragraph 1: one port only. The ocean was no longer a closed door, but it was a controlled gate."}
+ ]},
+{id:"audience",stop:"Chengde",title:"The audience",when:"Chengde, September 1793",
+ lede:"You have finally reached the emperor’s summer palace, north of the Great Wall. Make three choices for the embassy. There is no wrong answer here. After each choice, see how the Qing court would react and what Macartney really did.",
+ brief:[
+  "To the Qing court, every foreign mission was a <b>tribute</b> mission: a weaker ruler showing respect to the Son of Heaven. The British saw themselves as equals.",
+  "Envoys who met the emperor were expected to <b>kowtow</b>: kneel three times and touch their forehead to the ground nine times."],
+ items:[
+  {id:"d1",type:"decide",q:"Which gifts will you present to the emperor?",
+   opts:[
+    {t:"Show off British science: a planetarium, telescopes, clocks, and the newest cannons",court:"The court records them as tribute. Officials note that the palace already has many European clocks."},
+    {t:"Bring silver and fine British wool cloth",court:"Silver is welcome, but wool cloth is too warm for most of China. The court sees ordinary trade goods, not a gift worthy of an emperor."},
+    {t:"Bring what tribute missions usually bring: rare animals, gold, and local treasures",court:"This looks like a proper tribute mission. The court is pleased, but it also confirms that Britain is a lesser kingdom."}],
+   hist:"Macartney brought about 600 cases of gifts chosen to show off British science, including a planetarium, telescopes, clocks, and guns. Qianlong was polite but unimpressed."},
+  {id:"d2",type:"decide",q:"How will you greet the emperor?",
+   opts:[
+    {t:"Kowtow fully, like every other envoy",court:"The court is satisfied. Britain has shown respect like any tribute state. But at home, some British leaders would call it humiliating."},
+    {t:"Kneel on one knee, the way you would greet the British king",court:"The court is offended. Officials work out a compromise, but the emperor’s advisers do not forget the insult."},
+    {t:"Refuse to bow at all. Britain is China’s equal.",court:"This is a grave insult to the Son of Heaven. The audience is in danger of being canceled."}],
+   hist:"Macartney refused to kowtow and knelt on one knee instead. Accounts disagree about exactly what happened, but the court was displeased."},
+  {id:"d3",type:"requests",q:"Which requests will you present? Choose at least one.",
+   opts:["Open more ports, like Ningbo and Tianjin, to British ships","Let Britain keep a permanent ambassador in Beijing","Give Britain a small island near the coast to store its goods","Set lower, fixed taxes on British trade"],
+   court:"The court reads every request as a lesser kingdom asking for special favors from the emperor.",
+   hist:"Macartney asked for all four of these and more. Qianlong rejected every one. You will read his answer next."}
+ ]},
+{id:"answer",stop:"The answer",title:"The emperor’s answer",when:"Beijing, October 1793",
+ lede:"Qianlong sent his answer to King George III. Read it closely. You will analyze it like any other source.",
+ edict:true,
+ items:[
+  {id:"a1",type:"evi",src:"edict",q:"What does Qianlong say about British goods?",opts:["China already has everything it needs and does not need foreign goods","British goods are too expensive for ordinary Chinese buyers","China will buy British goods once Britain pays its taxes","British goods are better made than anything made in China"],a:0,evi:[4],hint:"Find the line about what the Celestial Empire has.",why:"Line 4: the empire has all things and no need for foreign goods."},
+  {id:"a2",type:"evi",src:"edict",q:"Then why does Qianlong allow trade at Canton at all?",opts:["Europeans cannot do without Chinese tea, silk, and porcelain","China needs British silver to keep its armies paid","The British navy forced him to open the port","Canton merchants voted to open trade with Europe"],a:0,evi:[5],hint:"Which line names tea, silk, and porcelain?",why:"Line 5: trade is a favor to Europeans who need Chinese goods."},
+  {id:"frame",type:"frame",q:"Analyze the letter with our four source questions. Write at least 6 words for each.",
+   parts:[
+    {k:"pov",l:"Point of view",s:"Who wrote this, and what position was he in?"},
+    {k:"bias",l:"Bias",s:"What does he want King George to believe about China and about Britain?"},
+    {k:"context",l:"Context",s:"What was happening in China and in Britain in 1793?"},
+    {k:"framing",l:"Framing",s:"Look at words like “humbly” and “barbarians.” How does he frame Britain?"}],min:6}
+ ],
+ epilogue:"Macartney sailed home with nothing. Over the next 40 years, British merchants found a product Chinese buyers would pay silver for: <b>opium</b>, grown in British India and smuggled into China. When the Qing tried to stop the drug trade, Britain sent warships. In the <b>Opium War</b> (1839–1842), British steamships and cannons defeated the Qing. The Treaty of Nanjing forced China to open five ports and hand over Hong Kong. It came 46 years after Qianlong’s letter."},
+{id:"record",stop:"Your record",title:"Your record",when:"Exit ticket and submission card",
+ lede:"Finish the exit ticket, add your name, and make your card. Then take a screenshot and submit it."}
+];
+
+const EDICT={title:"Qianlong to King George III, 1793",
+ cite:"Adapted and condensed from the Qianlong emperor’s two edicts to George III, 1793, in the translation by E. Backhouse and J. O. P. Bland (1914). Qianlong was 82 years old and had ruled China for 58 years.",
+ lines:[
+  "You, O King, live beyond many seas. Yet you have humbly sent an embassy with a letter, to show your respect. I approve of your good intentions.",
+  "You ask to keep one of your people at my capital. This does not agree with the customs of my dynasty, and it cannot be allowed.",
+  "I rule the whole world, and my only aim is to govern well. Strange and costly objects do not interest me.",
+  "Our Celestial Empire has all things in great abundance and lacks nothing within its borders. There is no need to bring in the goods of outside barbarians in exchange for our own.",
+  "But tea, silk, and porcelain are things that European nations and you yourselves cannot do without. So, as a special favor, I have allowed foreign trading houses at Canton.",
+  "Your other requests, for new ports, an island, and lower taxes, break the laws of my empire. I cannot grant them.",
+  "Obey these instructions with care, and show even greater loyalty in the future."]};
+
+const NEXTNAME=["","the Qing","Canton","Chengde","the answer","your record"];
+const GRADED=[];STATIONS.forEach(s=>(s.items||[]).forEach(x=>{if(["mc","evi","sort"].includes(x.type))GRADED.push(x.id);}));
+
+/* ---------- state ---------- */
+function load(){try{const v=JSON.parse(localStorage.getItem(KEY)||"null");if(v&&v.items)return v;}catch(e){}return null;}
+let S=load()||{at:0,reached:0,items:{},lockouts:0,lockUntil:0,wrongTimes:[],name:"",period:"",exit:{mid:"",why:""}};
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+function restarts(){try{return parseInt(localStorage.getItem(RKEY)||"0",10)||0;}catch(e){return 0;}}
+function it(id){if(!S.items[id])S.items[id]={done:false,tries:0,struck:[],choice:null,evi:[],text:"",waitUntil:0};return S.items[id];}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+function words(t){return (t||"").trim().split(/\s+/).filter(Boolean).length;}
+function shuffleOrder(id,n){const k="ord_"+id;if(!S[k]){const a=[...Array(n).keys()];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}S[k]=a;save();}return S[k];}
+
+/* ---------- route ---------- */
+function drawRoute(){
+  const svg=document.getElementById("route");const n=STATIONS.length;const x0=40,x1=720,y=34;
+  let h=`<path d="M${x0} ${y} C 200 ${y-26}, 300 ${y+26}, 380 ${y} S 600 ${y-26}, ${x1} ${y}" fill="none" stroke="#C9B48E" stroke-width="3" stroke-dasharray="6 6"/>`;
+  STATIONS.forEach((s,i)=>{const x=x0+i*(x1-x0)/(n-1);const done=i<S.reached,cur=i===S.at,lock=i>S.reached;
+    const fill=cur?"#B8401B":(done?"#2F5D7C":(lock?"#F4EEE2":"#FBF8F1"));const stroke=lock?"#C9B48E":(cur?"#B8401B":"#2F5D7C");
+    h+=`<g class="stop${cur?" current":""}${lock?" locked":""}" data-i="${i}" tabindex="${lock?-1:0}" role="button" aria-label="${esc(s.stop)}${lock?", locked":""}">
+      <circle cx="${x}" cy="${y}" r="${cur?12:9}" fill="${fill}" stroke="${stroke}" stroke-width="3"/>
+      <text x="${x}" y="${y+34}" text-anchor="middle">${esc(s.stop)}</text></g>`;});
+  svg.innerHTML=h;
+  svg.querySelectorAll(".stop").forEach(g=>{const go=()=>{const i=+g.dataset.i;if(i<=S.reached){S.at=i;save();render(true);}};g.addEventListener("click",go);g.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();go();}});});
+}
+
+/* ---------- figures ---------- */
+function popChart(){
+  const d=[["1650",150],["1700",160],["1750",225],["1800",320]];const W=640,H=250,b=40,top=24;const max=350;
+  let h=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="China's population: about 150 million in 1650, 160 million in 1700, 225 million in 1750, 320 million in 1800">`;
+  [0,100,200,300].forEach(v=>{const yy=H-b-(v/max)*(H-b-top);h+=`<line x1="60" x2="${W-10}" y1="${yy}" y2="${yy}" stroke="#DCCFB9"/><text x="52" y="${yy+5}" text-anchor="end" font-size="13" fill="#6E6259" font-family="Inter,Arial">${v}</text>`;});
+  d.forEach((p,i)=>{const bw=80,gx=100+i*135,bh=(p[1]/max)*(H-b-top),yy=H-b-bh;
+    h+=`<rect x="${gx}" y="${yy}" width="${bw}" height="${bh}" rx="4" fill="${i===3?"#B8401B":"#2F5D7C"}"/>`+
+       `<text x="${gx+bw/2}" y="${yy-8}" text-anchor="middle" font-size="15" font-weight="600" fill="#1F1B18" font-family="Inter,Arial">≈${p[1]}</text>`+
+       `<text x="${gx+bw/2}" y="${H-b+20}" text-anchor="middle" font-size="15" fill="#1F1B18" font-family="Inter,Arial">${p[0]}</text>`;});
+  h+=`<text x="14" y="${top+80}" font-size="13" fill="#6E6259" font-family="Inter,Arial" transform="rotate(-90 14 ${top+80})" text-anchor="middle">millions of people</text></svg>`;
+  return `<figure class="fig">${h}<figcaption>China’s population, 1650–1800. These are historians’ estimates, and they vary. For comparison, Britain had about 10 million people in 1800.</figcaption></figure>`;
+}
+const SEAL=`<svg class="seal" viewBox="0 0 100 100" aria-hidden="true"><rect x="4" y="4" width="92" height="92" rx="6" fill="#B8401B"/><rect x="12" y="12" width="76" height="76" rx="3" fill="none" stroke="#F1E3C4" stroke-width="3"/><text x="50" y="47" text-anchor="middle" font-size="32" fill="#F1E3C4" font-family="serif">乾</text><text x="50" y="80" text-anchor="middle" font-size="32" fill="#F1E3C4" font-family="serif">隆</text></svg>`;
+function edictHTML(){return `<section class="edict" aria-label="Source: ${esc(EDICT.title)}">${SEAL}<h3>${esc(EDICT.title)}</h3><div class="cite">${esc(EDICT.cite)}</div><ol id="src-edict">${EDICT.lines.map(l=>`<li>${esc(l)}</li>`).join("")}</ol></section>`;}
+
+/* ---------- lock handling ---------- */
+function now(){return Date.now();}
+function locked(){return S.lockUntil>now();}
+function noteWrong(){
+  const t=now();S.wrongTimes.push(t);S.wrongTimes=S.wrongTimes.slice(-RAPID_LIMIT);
+  if(S.wrongTimes.length===RAPID_LIMIT){let rapid=true;for(let i=1;i<RAPID_LIMIT;i++){if(S.wrongTimes[i]-S.wrongTimes[i-1]>RAPID_MS)rapid=false;}
+    if(rapid){S.lockUntil=t+LOCK_MS;S.lockouts++;S.wrongTimes=[];}}
+  save();
+}
+let tick=null;
+function startTicker(){if(tick)return;tick=setInterval(()=>{
+  const b=document.getElementById("lockbanner");
+  if(locked()){const s=Math.ceil((S.lockUntil-now())/1000);b.classList.remove("hide");b.textContent=`Too many quick guesses. Checking is paused for ${s} seconds. Use the time to reread the briefing.`;}
+  else{b.classList.add("hide");}
+  document.querySelectorAll("[data-wait]").forEach(el=>{const id=el.dataset.wait;const r=Math.ceil((it(id).waitUntil-now())/1000);el.textContent=r>0?`Reread first. You can check again in ${r} s.`:"";});
+  document.querySelectorAll("[data-check]").forEach(btn=>{const id=btn.dataset.check;btn.disabled=locked()||it(id).waitUntil>now()||!readyToCheck(id);});
+},400);}
+
+/* ---------- item renderers ---------- */
+function findItem(id){for(const s of STATIONS)for(const x of (s.items||[]))if(x.id===id)return x;return null;}
+function readyToCheck(id){const x=findItem(id),st=it(id);if(st.done)return false;if(x.type==="mc")return st.choice!==null;if(x.type==="evi")return st.choice!==null&&st.evi.length===x.evi.length;return true;}
+function optsHTML(x,st){
+  const ord=x.fixed?[...Array(x.opts.length).keys()]:shuffleOrder(x.id,x.opts.length);
+  return `<div class="opts" role="radiogroup">${ord.map(i=>{const struck=st.struck.includes(i);const ch=st.choice===i;
+    return `<label class="opt${struck?" struck":""}"><input type="radio" name="${x.id}" value="${i}" ${ch?"checked":""} ${(st.done||struck)?"disabled":""}><span>${esc(x.opts[i])}</span></label>`;}).join("")}</div>`;
+}
+function srcLen(x,sid){return x.src==="edict"?EDICT.lines.length:STATIONS[sid].brief.length;}
+function itemHTML(x,sid){
+  const st=it(x.id);
+  if(x.figure==="pop")return popChart();
+  if(x.type==="mc"||x.type==="evi"){
+    let h=`<div class="q${st.done?" done":""}" id="q-${x.id}"><div class="qhead">${esc(x.q)}</div>${optsHTML(x,st)}`;
+    if(x.type==="evi"){const n=srcLen(x,sid);const unit=x.src==="edict"?"line":"paragraph";
+      h+=`<div class="evi-label">Which ${unit}${x.evi.length>1?"s":""} prove${x.evi.length>1?"":"s"} it? Pick ${x.evi.length}.</div><div class="chips">${[...Array(n).keys()].map(k=>{const v=k+1;const on=st.evi.includes(v);return `<button type="button" class="chip" data-chip="${x.id}" data-v="${v}" aria-pressed="${on}" ${st.done?"disabled":""}>${x.src==="edict"?"":"¶"}${v}</button>`;}).join("")}</div>`;}
+    if(!st.done)h+=`<button class="btn" type="button" data-check="${x.id}">Check</button><span class="wait" data-wait="${x.id}"></span>`;
+    h+=`<div class="fb ${st.done?"ok":(st.msg?"bad":"")}" id="fb-${x.id}">${st.done?esc(x.why):(st.msg?esc(st.msg):"")}</div></div>`;
+    return h;}
+  if(x.type==="sort"){
+    const placed=st.placed||{};const pool=x.cards.map((c,i)=>i).filter(i=>!(i in placed));const ord=shuffleOrder(x.id,x.cards.length).filter(i=>pool.includes(i));
+    let h=`<div class="q${st.done?" done":""}" id="q-${x.id}"><div class="qhead">${esc(x.q)}</div><div class="pool" aria-label="Cards to sort">${ord.map(i=>`<button type="button" class="card" data-card="${i}">${esc(x.cards[i][0])}</button>`).join("")||`<span class="note" style="color:var(--muted)">All sorted.</span>`}</div><div class="bins">`;
+    x.bins.forEach(b=>{h+=`<div class="bin" data-bin="${b.id}" role="button" tabindex="0" aria-label="${esc(b.label)}"><h4>${esc(b.label)}</h4><div class="cards">${Object.keys(placed).filter(i=>placed[i]===b.id).map(i=>`<span class="card good">${esc(x.cards[i][0])}</span>`).join("")}</div></div>`;});
+    h+=`</div><span class="wait" data-wait="${x.id}"></span><div class="fb ${st.done?"ok":(st.msg?"bad":"")}" id="fb-${x.id}">${st.done?"All sorted. The Qing let trade in, but only on Qing terms.":(st.msg?esc(st.msg):"")}</div></div>`;
+    return h;}
+  if(x.type==="decide"){
+    let h=`<div class="q${st.done?" done":""}" id="q-${x.id}"><div class="qhead">${esc(x.q)}</div><div class="opts">${x.opts.map((o,i)=>`<label class="opt"><input type="radio" name="${x.id}" value="${i}" ${st.choice===i?"checked":""} ${st.choice!==null?"disabled":""}><span>${esc(o.t)}</span></label>`).join("")}</div>`;
+    if(st.choice!==null){h+=`<div class="court"><p><span class="who">The Qing court:</span> ${esc(x.opts[st.choice].court)}</p><p><span class="who">What really happened:</span> ${esc(x.hist)}</p></div>`+reasonHTML(x.id,st,"Why did you make this choice?",6);}
+    else h+=`<button class="btn" type="button" data-decide="${x.id}" disabled>Make this choice</button>`;
+    return h+`</div>`;}
+  if(x.type==="requests"){
+    const ch=st.choice||[];const locked2=st.revealed;
+    let h=`<div class="q${st.done?" done":""}" id="q-${x.id}"><div class="qhead">${esc(x.q)}</div><div class="opts">${x.opts.map((o,i)=>`<label class="opt"><input type="checkbox" data-req="${x.id}" value="${i}" ${ch.includes(i)?"checked":""} ${locked2?"disabled":""}><span>${esc(o)}</span></label>`).join("")}</div>`;
+    if(locked2){h+=`<div class="court"><p><span class="who">The Qing court:</span> ${esc(x.court)}</p><p><span class="who">What really happened:</span> ${esc(x.hist)}</p></div>`+reasonHTML(x.id,st,"Which request did you think mattered most, and why?",6);}
+    else h+=`<button class="btn" type="button" data-present="${x.id}" ${ch.length?"":"disabled"}>Present these requests</button>`;
+    return h+`</div>`;}
+  if(x.type==="frame"){
+    const t=st.parts||{};
+    let h=`<div class="q${st.done?" done":""}" id="q-${x.id}"><div class="qhead">${esc(x.q)}</div>`;
+    x.parts.forEach(p=>{h+=`<div class="field"><label for="fr-${p.k}">${esc(p.l)} <span class="sub">${esc(p.s)}</span></label><textarea id="fr-${p.k}" data-frame="${p.k}">${esc(t[p.k]||"")}</textarea><div class="count" id="ct-${p.k}"></div></div>`;});
+    return h+`</div>`;}
+  return "";
+}
+function reasonHTML(id,st,label,min){return `<div class="field" style="margin-top:12px"><label for="rs-${id}">${esc(label)} <span class="sub">At least ${min} words.</span></label><textarea id="rs-${id}" data-reason="${id}" data-min="${min}" style="min-height:64px">${esc(st.text||"")}</textarea><div class="count" id="rc-${id}"></div></div>`;}
+
+/* ---------- completion ---------- */
+function itemDone(x){const st=it(x.id);
+  if(["mc","evi","sort"].includes(x.type))return st.done;
+  if(x.type==="decide")return st.choice!==null&&words(st.text)>=6;
+  if(x.type==="requests")return !!st.revealed&&words(st.text)>=6;
+  if(x.type==="frame"){const p=st.parts||{};return x.parts.every(q=>words(p[q.k])>=x.min);}
+  return true;}
+function stationDone(i){return (STATIONS[i].items||[]).filter(x=>x.id).every(itemDone);}
+function firstTry(){return GRADED.filter(id=>{const s=S.items[id];return s&&s.done&&s.tries===1;}).length;}
+
+/* ---------- render ---------- */
+function render(scrollTop){
+  drawRoute();
+  const sid=S.at,s=STATIONS[sid];const main=document.getElementById("main");
+  let h=`<header class="hero"><div class="when">${esc(s.when)}</div><h1>${esc(s.title)}</h1><p class="lede">${esc(s.lede)}</p></header>`;
+  if(s.id==="record"){main.innerHTML=h+recordHTML();bindRecord();if(scrollTop)window.scrollTo(0,0);return;}
+  if(s.brief)h+=`<section class="brief" aria-label="Briefing"><ol class="paras" id="src-brief">${s.brief.map((p,i)=>`<li><span class="pn">¶${i+1}</span>${p}</li>`).join("")}</ol></section>`;
+  if(s.edict)h+=edictHTML();
+  (s.items||[]).forEach(x=>{h+=itemHTML(x,sid);});
+  if(s.epilogue&&stationDone(sid))h+=`<div class="epi"><h3>What happened next</h3><p>${s.epilogue}</p></div>`;
+  const done=stationDone(sid);const nxt=STATIONS[sid+1];
+  h+=`<div class="next"><span class="note">${done?"Station complete.":"Finish every question on this page to continue."}</span><button class="btn ember" id="go-next" type="button" ${done?"":"disabled"}>Continue to ${esc(NEXTNAME[sid+1])}</button></div>`;
+  main.innerHTML=h;bind(sid);if(scrollTop)window.scrollTo(0,0);
+}
+function hl(src,vals){const ol=document.getElementById(src==="edict"?"src-edict":"src-brief");if(!ol)return;[...ol.children].forEach((li,i)=>li.classList.toggle("hl",vals.includes(i+1)));}
+function bind(sid){
+  const main=document.getElementById("main");
+  main.querySelectorAll('input[type="radio"]').forEach(r=>r.addEventListener("change",()=>{const x=findItem(r.name);const st=it(r.name);
+    if(x.type==="decide"){st.pending=+r.value;const b=main.querySelector(`[data-decide="${x.id}"]`);if(b)b.disabled=false;return;}
+    st.choice=+r.value;save();}));
+  main.querySelectorAll("[data-chip]").forEach(c=>c.addEventListener("click",()=>{const id=c.dataset.chip,v=+c.dataset.v,x=findItem(id),st=it(id);
+    if(st.evi.includes(v))st.evi=st.evi.filter(z=>z!==v);else{st.evi.push(v);if(st.evi.length>x.evi.length)st.evi.shift();}
+    save();main.querySelectorAll(`[data-chip="${id}"]`).forEach(b=>b.setAttribute("aria-pressed",st.evi.includes(+b.dataset.v)));hl(x.src||"brief",st.evi);}));
+  main.querySelectorAll("[data-check]").forEach(b=>b.addEventListener("click",()=>check(b.dataset.check)));
+  main.querySelectorAll("[data-decide]").forEach(b=>b.addEventListener("click",()=>{const st=it(b.dataset.decide);if(st.pending==null)return;st.choice=st.pending;save();render(false);}));
+  main.querySelectorAll("[data-req]").forEach(c=>c.addEventListener("change",()=>{const st=it(c.dataset.req);const v=+c.value;st.choice=st.choice||[];if(c.checked){if(!st.choice.includes(v))st.choice.push(v);}else st.choice=st.choice.filter(z=>z!==v);save();const b=main.querySelector(`[data-present="${c.dataset.req}"]`);if(b)b.disabled=!st.choice.length;}));
+  main.querySelectorAll("[data-present]").forEach(b=>b.addEventListener("click",()=>{const st=it(b.dataset.present);st.revealed=true;save();render(false);}));
+  main.querySelectorAll("[data-reason]").forEach(t=>{const up=()=>{const st=it(t.dataset.reason);st.text=t.value;save();const n=words(t.value),m=+t.dataset.min;document.getElementById("rc-"+t.dataset.reason).textContent=n>=m?`${n} words. Done.`:`${n} of ${m} words`;refreshNext(sid);};t.addEventListener("input",up);up();});
+  main.querySelectorAll("[data-frame]").forEach(t=>{const up=()=>{const st=it("frame");st.parts=st.parts||{};st.parts[t.dataset.frame]=t.value;save();const n=words(t.value);document.getElementById("ct-"+t.dataset.frame).textContent=n>=6?`${n} words. Done.`:`${n} of 6 words`;refreshNext(sid);};t.addEventListener("input",up);up();});
+  // sort
+  let sel=null;
+  main.querySelectorAll("[data-card]").forEach(c=>c.addEventListener("click",()=>{main.querySelectorAll("[data-card]").forEach(z=>z.classList.remove("sel"));sel=+c.dataset.card;c.classList.add("sel");main.querySelectorAll(".bin").forEach(b=>b.classList.add("target"));}));
+  main.querySelectorAll("[data-bin]").forEach(bin=>{const drop=()=>{if(sel===null)return;placeCard("sort",sel,bin.dataset.bin);sel=null;};bin.addEventListener("click",drop);bin.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();drop();}});});
+  const nb=document.getElementById("go-next");if(nb)nb.addEventListener("click",()=>{if(!stationDone(sid))return;S.at=sid+1;S.reached=Math.max(S.reached,sid+1);save();render(true);});
+  // restore highlights for evi items
+  (STATIONS[sid].items||[]).forEach(x=>{if(x.type==="evi"&&!it(x.id).done&&it(x.id).evi.length)hl(x.src||"brief",it(x.id).evi);});
+}
+function refreshNext(sid){const b=document.getElementById("go-next");if(!b)return;const d=stationDone(sid);const wasDisabled=b.disabled;b.disabled=!d;b.previousElementSibling.textContent=d?"Station complete.":"Finish every question on this page to continue.";
+  if(d&&STATIONS[sid].epilogue&&!document.querySelector(".epi")){const e=document.createElement("div");e.className="epi";e.innerHTML=`<h3>What happened next</h3><p>${STATIONS[sid].epilogue}</p>`;b.parentElement.before(e);}}
+function check(id){
+  if(locked())return;const x=findItem(id),st=it(id);if(st.done||st.waitUntil>now())return;
+  st.tries++;
+  const ansOK=st.choice===x.a;
+  if(x.type==="mc"){
+    if(ansOK){st.done=true;st.msg="";}
+    else{st.struck.push(st.choice);st.choice=null;st.msg="Not quite. "+(x.hint||"Reread and try again.");st.waitUntil=now()+WRONG_WAIT_MS;noteWrong();}
+  } else {
+    const want=[...x.evi].sort().join(","),got=[...st.evi].sort().join(",");
+    if(ansOK&&want===got){st.done=true;st.msg="";}
+    else if(!ansOK){st.struck.push(st.choice);st.choice=null;st.msg="Not quite. "+(x.hint||"Reread and try again.");st.waitUntil=now()+WRONG_WAIT_MS;noteWrong();}
+    else{st.msg="Right answer, but that is not the evidence. Find the "+(x.src==="edict"?"line":"paragraph")+" that proves it.";st.evi=[];st.waitUntil=now()+WRONG_WAIT_MS;noteWrong();}
+  }
+  save();render(false);const el=document.getElementById("q-"+id);if(el)el.scrollIntoView({block:"nearest"});
+}
+function placeCard(id,i,bin){
+  if(locked())return;const x=findItem(id),st=it(id);if(st.waitUntil>now())return;st.placed=st.placed||{};
+  if(st.tries===0)st.tries=1;
+  if(x.cards[i][1]===bin){st.placed[i]=bin;st.msg="";if(Object.keys(st.placed).length===x.cards.length)st.done=true;save();render(false);}
+  else{st.tries++;st.msg="That card belongs in the other box. Reread the briefing.";st.waitUntil=now()+5000;noteWrong();save();render(false);
+    const c=document.querySelector(`[data-card="${i}"]`);if(c)c.classList.add("nope");}
+  const el=document.getElementById("q-"+id);if(el)el.scrollIntoView({block:"nearest"});
+}
+
+/* ---------- record ---------- */
+function code(name,per,ft,lk,rs){const s=(name||"").trim().toLowerCase().replace(/\s+/g," ")+"|"+String(per).trim()+"|"+ft+"|"+lk+"|"+rs+"|qianlong1793";
+  let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}
+  const A="ABCDEFGHJKMNPQRSTUVWXYZ23456789";let o="";h=h>>>0;for(let i=0;i<5;i++){o+=A[h%A.length];h=Math.floor(h/A.length);}return "QL-"+o;}
+function recordHTML(){
+  const e=S.exit;
+  return `<div class="q"><div class="qhead">Exit ticket: finish the chain</div>
+  <p>How did the Qing approach to the outside world shape what happened to China? Fill in the middle link, using a detail from today.</p>
+  <div class="chain"><div class="link">The Qing were confident that China had everything it needed</div><div class="arrow" aria-hidden="true">→</div>
+  <textarea id="ex-mid" aria-label="Middle link of the chain" placeholder="So the Qing...">${esc(e.mid)}</textarea><div class="arrow" aria-hidden="true">→</div>
+  <div class="link">By the 1840s, China was vulnerable to Europe</div></div>
+  <div class="field"><label for="ex-why">Explain one link in your chain. <span class="sub">1–2 sentences, at least 15 words. Use a detail from today.</span></label><textarea id="ex-why">${esc(e.why)}</textarea><div class="count" id="ex-ct"></div></div></div>
+  <div class="q"><div class="qhead">Your name</div><div class="row" style="display:grid;grid-template-columns:2fr 1fr;gap:12px">
+   <div class="field"><label for="nm">First and last name</label><input id="nm" class="in" value="${esc(S.name)}" autocomplete="off"></div>
+   <div class="field"><label for="pd">Period</label><input id="pd" class="in" value="${esc(S.period)}" autocomplete="off"></div></div>
+   <button class="btn ember" id="mk" type="button">Make my card</button> <span class="note" id="mk-note" style="color:var(--muted);margin-left:8px"></span></div>
+  <div id="cardzone"></div>
+  <p style="margin-top:22px"><button class="btn ghost" id="clear" type="button">Clear my answers</button> <span style="color:var(--muted);font-size:.9rem">Only if you are on a shared computer and finished. This cannot be undone, and restarts show on the card.</span></p>`;
+}
+function cardHTML(){
+  const ft=firstTry(),lk=S.lockouts,rs=restarts();
+  const d1=it("d1"),d2=it("d2"),d3=it("d3"),fr=(it("frame").parts||{});
+  const D1=findItem("d1"),D2=findItem("d2"),D3=findItem("d3");
+  const reqs=(d3.choice||[]).map(i=>D3.opts[i].split(",")[0]).join("; ");
+  const today=new Date().toLocaleDateString();
+  return `<div class="subcard" id="subcard">
+   <div class="top"><div><h2>Petition the Emperor</h2><div>Unit 3, Lesson 12, Day 7. ${esc(today)}</div></div><div class="who">${esc(S.name)}<div style="font-size:.85rem;font-weight:400">Period ${esc(S.period)}</div></div></div>
+   <div class="stats"><div><b>${ft} of ${GRADED.length}</b>Right on first try</div><div class="${lk?"flag":""}"><b>${lk}</b>Lockouts for quick guessing</div><div class="${rs?"flag":""}"><b>${rs}</b>Restarts</div><div><b>${STATIONS.length-1} of ${STATIONS.length-1}</b>Stations finished</div></div>
+   <div class="cols">
+    <p class="r"><b>Gifts:</b> ${esc(D1.opts[d1.choice].t)}. <i>${esc(d1.text)}</i></p>
+    <p class="r"><b>Greeting:</b> ${esc(D2.opts[d2.choice].t)}. <i>${esc(d2.text)}</i></p>
+    <p class="r full"><b>Requests:</b> ${esc(reqs)}. <i>${esc(d3.text)}</i></p>
+    <p class="r"><b>Point of view:</b> ${esc(fr.pov||"")}</p>
+    <p class="r"><b>Bias:</b> ${esc(fr.bias||"")}</p>
+    <p class="r"><b>Context:</b> ${esc(fr.context||"")}</p>
+    <p class="r"><b>Framing:</b> ${esc(fr.framing||"")}</p>
+    <p class="r full"><b>Exit ticket chain:</b> Qing confidence → <u>${esc(S.exit.mid)}</u> → vulnerable to Europe</p>
+    <p class="r full"><b>Explanation:</b> ${esc(S.exit.why)}</p>
+   </div>
+   <div class="code">Completion code: ${code(S.name,S.period,ft,lk,rs)}</div></div>
+   <div style="text-align:center;margin-top:14px"><button class="btn" id="shot" type="button">Full screen for my screenshot</button></div>`;
+}
+function bindRecord(){
+  const mid=document.getElementById("ex-mid"),why=document.getElementById("ex-why"),ct=document.getElementById("ex-ct");
+  const up=()=>{S.exit.mid=mid.value;S.exit.why=why.value;save();const n=words(why.value);ct.textContent=n>=15?`${n} words. Done.`:`${n} of 15 words`;};
+  mid.addEventListener("input",up);why.addEventListener("input",up);up();
+  const nm=document.getElementById("nm"),pd=document.getElementById("pd");
+  nm.addEventListener("input",()=>{S.name=nm.value;save();});pd.addEventListener("input",()=>{S.period=pd.value;save();});
+  const make=()=>{const note=document.getElementById("mk-note");const missing=[];
+    for(let i=0;i<STATIONS.length-1;i++)if(!stationDone(i))missing.push(STATIONS[i].stop);
+    if(missing.length){note.textContent="Finish these stations first: "+missing.join(", ")+".";return;}
+    if(words(S.exit.mid)<3){note.textContent="Fill in the middle link of the chain (at least 3 words).";return;}
+    if(words(S.exit.why)<15){note.textContent="Your explanation needs at least 15 words.";return;}
+    if(!S.name.trim()||!S.period.trim()){note.textContent="Add your name and period.";return;}
+    note.textContent="";S.made=true;save();document.getElementById("cardzone").innerHTML=cardHTML();
+    document.getElementById("shot").addEventListener("click",shotMode);document.getElementById("subcard").scrollIntoView({behavior:"smooth",block:"start"});};
+  document.getElementById("mk").addEventListener("click",make);
+  if(S.made)make();
+  document.getElementById("clear").addEventListener("click",()=>{if(!confirm("Clear every answer on this computer? Your card will be gone."))return;
+    try{localStorage.setItem(RKEY,String(restarts()+1));localStorage.removeItem(KEY);}catch(e){}location.reload();});
+}
+function shotMode(){
+  const ov=document.createElement("div");ov.className="shot";const card=document.getElementById("subcard").cloneNode(true);card.removeAttribute("id");ov.appendChild(card);
+  const x=document.createElement("button");x.className="btn shot-close";x.textContent="Close";x.type="button";
+  document.body.appendChild(ov);document.body.appendChild(x);
+  const fit=()=>{card.style.transform="none";const r=card.getBoundingClientRect();const s=Math.min((window.innerWidth-16)/r.width,(window.innerHeight-16)/r.height);card.style.transform=`scale(${s})`;};
+  fit();window.addEventListener("resize",fit);
+  const close=()=>{ov.remove();x.remove();window.removeEventListener("resize",fit);};x.addEventListener("click",close);document.addEventListener("keydown",function k(e){if(e.key==="Escape"){close();document.removeEventListener("keydown",k);}});
+}
+
+/* ---------- teacher check ---------- */
+document.getElementById("v-go").addEventListener("click",()=>{const g=id=>document.getElementById(id).value.trim();
+  document.getElementById("v-out").textContent=code(g("v-name"),g("v-per"),parseInt(g("v-ft")||"0",10),parseInt(g("v-lk")||"0",10),parseInt(g("v-rs")||"0",10));});
+
+const lb=document.createElement("div");lb.id="lockbanner";lb.className="banner hide";lb.setAttribute("role","status");document.body.appendChild(lb);
+if(S.at>S.reached)S.at=S.reached;
+render(true);startTicker();
+})();
+</script>
+</body>
+</html>
