@@ -23,6 +23,8 @@ const Board = lazy(() => import('./components/Board'))
 const Builders = lazy(() => import('./components/builders/Builders'))
 const DaalderRoster = lazy(() => import('./daalder/DaalderRoster'))
 const DaalderTeacherLogin = lazy(() => import('./daalder/DaalderTeacherLogin'))
+// The Activity Library is open to everyone: students reach it at #library
+const Library = lazy(() => import('./components/library/Library'))
 // Teacher-only screens — redirect to login if not authed
 const TEACHER_SCREENS = ['teacher-home', 'admin', 'host', 'board', 'builders', 'daalder-roster']
 
@@ -37,7 +39,7 @@ const HASH_TO_SCREEN = {
   ...Object.fromEntries(Object.entries(SCREEN_TO_HASH).map(([s, h]) => [h, s])),
   board: 'board', // older #board bookmarks still open Bord
 }
-const STUDENT_HASH = { 'daalder-login': 'daalder', 'daalder-home': 'daalder' }
+const STUDENT_HASH = { 'daalder-login': 'daalder', 'daalder-home': 'daalder', library: 'library' }
 
 // "#bord/abc123" belongs to the bord screen; Bord reads the part after the slash
 const hashBase = () => window.location.hash.replace('#', '').split('/')[0]
@@ -49,6 +51,7 @@ function screenFromHash() {
 function setHash(screen) {
   const hash = SCREEN_TO_HASH[screen] || STUDENT_HASH[screen]
   if (hash && HASH_TO_SCREEN[hashBase()] === screen) return // already there; keep any #bord/<board>
+  if (hash && hashBase() === hash) return // already there; keep any #library/<course>
   const url = hash ? `#${hash}` : window.location.pathname + window.location.search
   // replaceState (not a new history entry) so the browser Back button can't
   // pull a teacher out of a running game.
@@ -106,6 +109,7 @@ function AppInner() {
       show(isStudentAccount ? 'daalder-home' : 'daalder-login')
       return
     }
+    if (hashBase() === 'library') { show('library'); return }
     const fromHash = screenFromHash()
     if (!fromHash) return
     if (teacher) show(fromHash)
@@ -120,6 +124,7 @@ function AppInner() {
         show(isStudentAccount ? 'daalder-home' : 'daalder-login')
         return
       }
+      if (hashBase() === 'library') { show('library'); return }
       const fromHash = screenFromHash()
       if (!fromHash) return
       if (teacherRef.current) show(fromHash)
@@ -169,6 +174,9 @@ function AppInner() {
       )}
       {screen === 'daalder-roster' && teacher && (
         <Suspense fallback={<Loading />}><DaalderRoster go={go} /></Suspense>
+      )}
+      {screen === 'library' && (
+        <Suspense fallback={<Loading />}><Library go={go} /></Suspense>
       )}
       {screen === 'daalder-login' && <DaalderStudentLogin onSignedIn={() => show('daalder-home')} />}
       {screen === 'daalder-home'  && isStudentAccount && <DaalderStudentHome onSignOut={() => show('daalder-login')} />}

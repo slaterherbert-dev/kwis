@@ -19,6 +19,10 @@ export default function Landing({ go }) {
         Enter the PIN from your teacher to play
       </p>
 
+      <button className="btn" style={{ marginTop: '2rem' }} onClick={() => go('library')}>
+        📚 Activity Library
+      </button>
+
       <button className="text-link" style={{ marginTop: '3.5rem' }} onClick={() => go('teacher-home')}>
         {user ? 'Open teacher home' : 'Teacher? Sign in'}
       </button>

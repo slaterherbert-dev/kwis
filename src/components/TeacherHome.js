@@ -7,6 +7,7 @@ const TOOLS = [
   { screen: 'admin', icon: '📝', title: 'Question sets', desc: 'Create, edit, share, and import question sets from CSV.' },
   { screen: 'board', icon: '🖥️', title: 'Bord',          desc: 'Your classroom display: agenda, timer, name picker, images, and more.' },
   { screen: 'builders', icon: '🤝', title: 'Class Builders', desc: 'Projector games for community and teamwork: Would You Rather, Letter Rush, and more.', isNew: true },
+  { screen: 'library', icon: '📚', title: 'Activity Library', desc: 'The student menu of HTML activities by class. Students open it at /#library.', isNew: true },
 ]
 
 function greeting() {

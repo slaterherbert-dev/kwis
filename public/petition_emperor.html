@@ -278,12 +278,37 @@ const GRADED=[];STATIONS.forEach(s=>(s.items||[]).forEach(x=>{if(["mc","evi","so
 
 /* ---------- state ---------- */
 function load(){try{const v=JSON.parse(localStorage.getItem(KEY)||"null");if(v&&v.items)return v;}catch(e){}return null;}
-let S=load()||{at:0,reached:0,items:{},lockouts:0,lockUntil:0,wrongTimes:[],name:"",period:"",exit:{mid:"",why:""}};
+let S=load()||{at:0,reached:0,items:{},lockouts:0,lockUntil:0,wrongTimes:[],exit:{mid:"",why:""}};
+/* Name and period live only in page memory. They are never saved to the browser or sent anywhere. */
+let NAME="",PERIOD="";
+if("name" in S||"period" in S){delete S.name;delete S.period;}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
 function restarts(){try{return parseInt(localStorage.getItem(RKEY)||"0",10)||0;}catch(e){return 0;}}
 function it(id){if(!S.items[id])S.items[id]={done:false,tries:0,struck:[],choice:null,evi:[],text:"",waitUntil:0};return S.items[id];}
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
-function words(t){return (t||"").trim().split(/\s+/).filter(Boolean).length;}
+/* Word counting that ignores keyboard mashing: only real-looking words count. */
+function isJunk(w){
+  if(/\d/.test(w))return false;
+  if(!/[aeiouy]/.test(w))return true;                       // no vowels: "sdf", "hjkl"
+  if(/(.)\1\1/.test(w))return true;                          // "aaaa", "hmmm"
+  if(/[bcdfghjklmnpqrstvwxz]{5,}/.test(w))return true;        // long consonant runs
+  if(/(asd|sdf|qwe|zxc|jkl|dfg|fgh|ghj|hjk|xcv|cvb|vbn|bnm|qwr|wqe|dsa|fds|lkj|poi|uio)/.test(w))return true; // keyboard rows
+  if(/^(.{1,4})\1+$/.test(w))return true;                    // "asdasd", "lalala", "haha"
+  return false;
+}
+function wordInfo(t){
+  const all=(t||"").trim().split(/\s+/).filter(Boolean).map(w=>w.toLowerCase().replace(/[^a-z0-9'’-]/g,"")).filter(Boolean);
+  let bad=0,rep=0,n=0;const seen={};
+  for(const w of all){if(isJunk(w)){bad++;continue;}seen[w]=(seen[w]||0)+1;if(seen[w]>2&&w.length>3){rep++;continue;}n++;}
+  if(all.length>=6&&bad/all.length>0.3)n=0;                     // mostly junk: nothing counts
+  return {n,bad,rep};
+}
+function words(t){return wordInfo(t).n;}
+function countMsg(t,m){const w=wordInfo(t);
+  if(w.n>=m)return `${w.n} words. Done.`;
+  if(w.bad)return `${w.n} of ${m} real words. Keyboard mashing doesn’t count. Nice try.`;
+  if(w.rep)return `${w.n} of ${m} words. Repeating the same word doesn’t count.`;
+  return `${w.n} of ${m} words`;}
 function shuffleOrder(id,n){const k="ord_"+id;if(!S[k]){const a=[...Array(n).keys()];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}S[k]=a;save();}return S[k];}
 
 /* ---------- route ---------- */
@@ -414,8 +439,8 @@ function bind(sid){
   main.querySelectorAll("[data-decide]").forEach(b=>b.addEventListener("click",()=>{const st=it(b.dataset.decide);if(st.pending==null)return;st.choice=st.pending;save();render(false);}));
   main.querySelectorAll("[data-req]").forEach(c=>c.addEventListener("change",()=>{const st=it(c.dataset.req);const v=+c.value;st.choice=st.choice||[];if(c.checked){if(!st.choice.includes(v))st.choice.push(v);}else st.choice=st.choice.filter(z=>z!==v);save();const b=main.querySelector(`[data-present="${c.dataset.req}"]`);if(b)b.disabled=!st.choice.length;}));
   main.querySelectorAll("[data-present]").forEach(b=>b.addEventListener("click",()=>{const st=it(b.dataset.present);st.revealed=true;save();render(false);}));
-  main.querySelectorAll("[data-reason]").forEach(t=>{const up=()=>{const st=it(t.dataset.reason);st.text=t.value;save();const n=words(t.value),m=+t.dataset.min;document.getElementById("rc-"+t.dataset.reason).textContent=n>=m?`${n} words. Done.`:`${n} of ${m} words`;refreshNext(sid);};t.addEventListener("input",up);up();});
-  main.querySelectorAll("[data-frame]").forEach(t=>{const up=()=>{const st=it("frame");st.parts=st.parts||{};st.parts[t.dataset.frame]=t.value;save();const n=words(t.value);document.getElementById("ct-"+t.dataset.frame).textContent=n>=6?`${n} words. Done.`:`${n} of 6 words`;refreshNext(sid);};t.addEventListener("input",up);up();});
+  main.querySelectorAll("[data-reason]").forEach(t=>{const up=()=>{const st=it(t.dataset.reason);st.text=t.value;save();const m=+t.dataset.min;document.getElementById("rc-"+t.dataset.reason).textContent=countMsg(t.value,m);refreshNext(sid);};t.addEventListener("input",up);up();});
+  main.querySelectorAll("[data-frame]").forEach(t=>{const up=()=>{const st=it("frame");st.parts=st.parts||{};st.parts[t.dataset.frame]=t.value;save();document.getElementById("ct-"+t.dataset.frame).textContent=countMsg(t.value,6);refreshNext(sid);};t.addEventListener("input",up);up();});
   // sort
   let sel=null;
   main.querySelectorAll("[data-card]").forEach(c=>c.addEventListener("click",()=>{main.querySelectorAll("[data-card]").forEach(z=>z.classList.remove("sel"));sel=+c.dataset.card;c.classList.add("sel");main.querySelectorAll(".bin").forEach(b=>b.classList.add("target"));}));
@@ -463,9 +488,9 @@ function recordHTML(){
   <div class="link">By the 1840s, China was vulnerable to Europe</div></div>
   <div class="field"><label for="ex-why">Explain one link in your chain. <span class="sub">1–2 sentences, at least 15 words. Use a detail from today.</span></label><textarea id="ex-why">${esc(e.why)}</textarea><div class="count" id="ex-ct"></div></div></div>
   <div class="q"><div class="qhead">Your name</div><div class="row" style="display:grid;grid-template-columns:2fr 1fr;gap:12px">
-   <div class="field"><label for="nm">First and last name</label><input id="nm" class="in" value="${esc(S.name)}" autocomplete="off"></div>
-   <div class="field"><label for="pd">Period</label><input id="pd" class="in" value="${esc(S.period)}" autocomplete="off"></div></div>
-   <button class="btn ember" id="mk" type="button">Make my card</button> <span class="note" id="mk-note" style="color:var(--muted);margin-left:8px"></span></div>
+   <div class="field"><label for="nm">First and last name</label><input id="nm" class="in" value="${esc(NAME)}" autocomplete="off"></div>
+   <div class="field"><label for="pd">Period</label><input id="pd" class="in" value="${esc(PERIOD)}" autocomplete="off"></div></div>
+   <p style="color:var(--muted);font-size:.9rem;margin:0 0 10px">Your name is never saved. If you reload the page, type it again.</p><button class="btn ember" id="mk" type="button">Make my card</button> <span class="note" id="mk-note" style="color:var(--muted);margin-left:8px"></span></div>
   <div id="cardzone"></div>
   <p style="margin-top:22px"><button class="btn ghost" id="clear" type="button">Clear my answers</button> <span style="color:var(--muted);font-size:.9rem">Only if you are on a shared computer and finished. This cannot be undone, and restarts show on the card.</span></p>`;
 }
@@ -476,7 +501,7 @@ function cardHTML(){
   const reqs=(d3.choice||[]).map(i=>D3.opts[i].split(",")[0]).join("; ");
   const today=new Date().toLocaleDateString();
   return `<div class="subcard" id="subcard">
-   <div class="top"><div><h2>Petition the Emperor</h2><div>Unit 3, Lesson 12, Day 7. ${esc(today)}</div></div><div class="who">${esc(S.name)}<div style="font-size:.85rem;font-weight:400">Period ${esc(S.period)}</div></div></div>
+   <div class="top"><div><h2>Petition the Emperor</h2><div>Unit 3, Lesson 12, Day 7. ${esc(today)}</div></div><div class="who">${esc(NAME)}<div style="font-size:.85rem;font-weight:400">Period ${esc(PERIOD)}</div></div></div>
    <div class="stats"><div><b>${ft} of ${GRADED.length}</b>Right on first try</div><div class="${lk?"flag":""}"><b>${lk}</b>Lockouts for quick guessing</div><div class="${rs?"flag":""}"><b>${rs}</b>Restarts</div><div><b>${STATIONS.length-1} of ${STATIONS.length-1}</b>Stations finished</div></div>
    <div class="cols">
     <p class="r"><b>Gifts:</b> ${esc(D1.opts[d1.choice].t)}. <i>${esc(d1.text)}</i></p>
@@ -489,21 +514,21 @@ function cardHTML(){
     <p class="r full"><b>Exit ticket chain:</b> Qing confidence → <u>${esc(S.exit.mid)}</u> → vulnerable to Europe</p>
     <p class="r full"><b>Explanation:</b> ${esc(S.exit.why)}</p>
    </div>
-   <div class="code">Completion code: ${code(S.name,S.period,ft,lk,rs)}</div></div>
+   <div class="code">Completion code: ${code(NAME,PERIOD,ft,lk,rs)}</div></div>
    <div style="text-align:center;margin-top:14px"><button class="btn" id="shot" type="button">Full screen for my screenshot</button></div>`;
 }
 function bindRecord(){
   const mid=document.getElementById("ex-mid"),why=document.getElementById("ex-why"),ct=document.getElementById("ex-ct");
-  const up=()=>{S.exit.mid=mid.value;S.exit.why=why.value;save();const n=words(why.value);ct.textContent=n>=15?`${n} words. Done.`:`${n} of 15 words`;};
+  const up=()=>{S.exit.mid=mid.value;S.exit.why=why.value;save();ct.textContent=countMsg(why.value,15);};
   mid.addEventListener("input",up);why.addEventListener("input",up);up();
   const nm=document.getElementById("nm"),pd=document.getElementById("pd");
-  nm.addEventListener("input",()=>{S.name=nm.value;save();});pd.addEventListener("input",()=>{S.period=pd.value;save();});
+  nm.addEventListener("input",()=>{NAME=nm.value;});pd.addEventListener("input",()=>{PERIOD=pd.value;});
   const make=()=>{const note=document.getElementById("mk-note");const missing=[];
     for(let i=0;i<STATIONS.length-1;i++)if(!stationDone(i))missing.push(STATIONS[i].stop);
     if(missing.length){note.textContent="Finish these stations first: "+missing.join(", ")+".";return;}
     if(words(S.exit.mid)<3){note.textContent="Fill in the middle link of the chain (at least 3 words).";return;}
     if(words(S.exit.why)<15){note.textContent="Your explanation needs at least 15 words.";return;}
-    if(!S.name.trim()||!S.period.trim()){note.textContent="Add your name and period.";return;}
+    if(!NAME.trim()||!PERIOD.trim()){note.textContent="Add your name and period.";return;}
     note.textContent="";S.made=true;save();document.getElementById("cardzone").innerHTML=cardHTML();
     document.getElementById("shot").addEventListener("click",shotMode);document.getElementById("subcard").scrollIntoView({behavior:"smooth",block:"start"});};
   document.getElementById("mk").addEventListener("click",make);

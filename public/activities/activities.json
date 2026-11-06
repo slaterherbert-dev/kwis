@@ -1,0 +1,38 @@
+{
+  "courses": [
+    {
+      "id": "world-history",
+      "name": "World History",
+      "units": [
+        {
+          "name": "Unit 3: Empires, Ideas & the First Global Age",
+          "activities": [
+            {
+              "title": "Petition the Emperor",
+              "file": "/petition_emperor.html",
+              "day": "Day 7",
+              "description": "Join Britain's 1793 embassy to the Qing emperor and read his answer.",
+              "isNew": true
+            },
+            {
+              "title": "Castle Siege",
+              "file": "/castle_siege.html",
+              "day": "Day 5",
+              "description": "A siege game about how cannons helped kings take power."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "economics",
+      "name": "Economics",
+      "units": []
+    },
+    {
+      "id": "civics",
+      "name": "Civics",
+      "units": []
+    }
+  ]
+}
